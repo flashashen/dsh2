@@ -33,3 +33,22 @@ class Matches():
             if not rule(self):
                 return False
         return True
+
+
+    def __str__(self):
+
+        p = lambda x: "'{}'".format(x.name)
+
+        str = 'matched:'
+        for x in self.resolved:
+            str += p(x)
+        str +=  '. match candidates:'
+        for x in self.fragment:
+            str += p(x)
+        str +=  '. unmatched:'
+        for x in self.unresolved:
+            str  += p(x)
+        str +=  '. matched unsatisfied:'
+        for x in self.unsatisfied:
+            str  += p(x)
+        return str
