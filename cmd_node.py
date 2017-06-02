@@ -1,36 +1,7 @@
-import sys, subprocess
+import sys, subprocess, six
 from api import *
 # from api import INPUT_MATCH 
 from collections import defaultdict
-
-
-
-
-
-class CmdNode(object):
-
-    def __init__(self, name, cmd=None):
-        self.name = name
-        self.children = []
-        self.cmd = cmd
-
-        # signature: MATCH_RESULT match(CmdNode, input, start)
-        self.match = match_against_name.__get__(self, CmdNode)
-
-        # signature: status evaluate(statuses)
-        self.evaluate = eval_status_choose_one_child
-
-
-    def __repr__(self):
-        return "<CmdNode:{} cmd={}, children=[{}]>".format(self.name,','.join(self.children))
-
-    def execute(self, str_input):
-        print "execute {} called on '{}'".format(self.name, str_input)
-
-
-    def add_child(self, node):
-        if node:
-            self.children.append(node)
 
 
 
@@ -75,7 +46,7 @@ def match_against_name(cmd_node, input_segments, start_index=None):
     if start_index == None:
         start_index = 0
 
-    if input_segments == None or len(input_segments) == start_index:
+    if input_segments == None or len(input_segments) <= start_index:
         # If nothing is given as the input, then it matches as MATCH_EMPTY, a special case of fragment
         return MATCH_RESULT(MATCH_EMPTY, start_index, start_index, [cmd_node.name])
 
@@ -83,9 +54,11 @@ def match_against_name(cmd_node, input_segments, start_index=None):
 
     if cmd_node.name.startswith(word):
         if cmd_node.name == word:
+            # Full match 'consumes' this word and provides no completions
             return MATCH_RESULT(MATCH_FULL, start_index, start_index+1, [])
         else:
-            return MATCH_RESULT(MATCH_FRAGMENT, start_index, start_index, [cmd_node.name])
+            # Fragment match also 'consumes this word but also provides completions
+            return MATCH_RESULT(MATCH_FRAGMENT, start_index, start_index+1, [cmd_node.name])
 
     return MATCH_RESULT_NONE(start_index)
 
@@ -219,3 +192,38 @@ def eval_status_children_as_options(statuses):
 #         super(self.__class__, self).__init__(name)
 #
 #
+
+
+
+
+
+class CmdNode(object):
+
+    def __init__(self, name, cmd=None, match_func=match_against_name, eval_func=eval_status_choose_one_child):
+        self.name = name
+        self.children = []
+        self.cmd = cmd
+
+        # signature: MATCH_RESULT match(CmdNode, input, start)
+        self.match = match_func.__get__(self, CmdNode)
+
+        # signature: status evaluate(statuses)
+        self.evaluate = eval_func
+
+
+    def __repr__(self):
+        return "<CmdNode:{} cmd={}, children=[{}]>".format(self.name,','.join(self.children))
+
+    def execute(self, str_input):
+        print "execute {} called on '{}'".format(self.name, str_input)
+
+
+    def add_child(self, node):
+        if node:
+            self.children.append(node if isinstance(node, CmdNode) else CmdNode(node))
+
+    def add_children(self, nodes):
+        if isinstance(nodes, six.string_types):
+            nodes = nodes.split()
+        for node in nodes:
+            self.add_child(node if isinstance(node,CmdNode) else CmdNode(str(node)))

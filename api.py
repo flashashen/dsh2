@@ -8,11 +8,12 @@ MATCH_EMPTY = 'EMPTY'           # Matched against empty input
 MATCH_FRAGMENT = 'FRAGMENT'     # Matched input as a fragment against current node
 MATCH_FULL = 'FULL'             # Matched input fully against current node
 
-
+# STATUS_INITIAL = 'INITIAL'
 STATUS_UNSATISFIED = 'UNSATISFIED'
 STATUS_SATISFIED = 'SATISFIED'
 STATUS_COMPLETED = 'COMPLETED'
 STATUS_EXCEEDED = 'EXCEEDED'
+STATUS_UNRESOLVED = 'UNRESOLVED'
 
 MODE_COMPLETE = 'MODE_COMPLETE'
 MODE_EXECUTE = 'MODE_EXECUTE'
@@ -24,7 +25,7 @@ MODE_EXECUTE = 'MODE_EXECUTE'
 #
 MATCH_RESULT = namedtuple('MATCH_RESULT', 'status start stop completions')
 
-def MATCH_RESULT_NONE(start_index):
+def MATCH_RESULT_NONE(start_index=0):
     return MATCH_RESULT(MATCH_NONE, start_index, start_index, [])
 
 
@@ -33,6 +34,16 @@ def MATCH_RESULT_NONE(start_index):
 #
 
 RESOLUTION = namedtuple('RESOLUTION', 'resolution_status, match_result, completions')
+
+
+#
+#       ordered_list_of_resolved_children = resolve(node, input, index)
+#
+#       if tail is unsatisfied, then only tail can produce completions
+#
+#
+
+
 
 
 # RESOLUTION_NO_MATCH = RESOLUTION(STATUS_UNSATISFIED, MATCH_RESULT(MATCH_NONE, None), [])
