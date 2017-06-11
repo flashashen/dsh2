@@ -212,7 +212,7 @@ class CmdNode(object):
 
 
     def __repr__(self):
-        return "<CmdNode:{} cmd={}, children=[{}]>".format(self.name,','.join(self.children))
+        return "<CmdNode:{} cmd={}, children=[{}]>".format(self.name, self.cmd, str(self.children))
 
     def execute(self, str_input):
         print "execute {} called on '{}'".format(self.name, str_input)

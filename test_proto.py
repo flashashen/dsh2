@@ -32,7 +32,7 @@ def test_full_and_fragment_siblings_same_prefix():
 
 
 
-def testresolve1():
+def test_resolve_sequence_all_one_one():
 
     # root = one_of('root', 'choice1', 'choice2')
     # path = ResolutionPath(root)
@@ -42,14 +42,14 @@ def testresolve1():
     # assert path.match_result.completions == []
 
     root = all_of('ans',
-           one_of('play', 'website.yml', 'appserver.yml'),
-           one_of('list', 'groups', 'hosts', 'playbooks') )
+                  one_of('play', 'website.yml', 'appserver.yml'),
+                  one_of('list', 'groups', 'hosts', 'playbooks') )
 
-    # path = ResolutionPath(root)
-    # resolve(path, ['ans','pl'], 0)
-    # assert path.status == STATUS_UNSATISFIED
-    # assert path.match_result.status == MATCH_FULL
-    # assert path.match_result.completions == ['play']
+    path = ResolutionPath(root)
+    resolve(path, ['ans','pl'], 0)
+    assert path.status == STATUS_UNSATISFIED
+    assert path.match_result.status == MATCH_FULL
+    assert path.match_result.completions == ['play']
 
     path = ResolutionPath(root)
     resolve(path, ['ans','play'], 0)
@@ -57,35 +57,35 @@ def testresolve1():
     assert path.match_result.status == MATCH_FULL
     assert path.match_result.completions == ['website.yml','appserver.yml']
 
-    # path = ResolutionPath(root)
-    # resolve(path, ['ans','play', 'website.yml'], 0)
-    # assert path.status == STATUS_UNSATISFIED
-    # assert path.match_result.status == MATCH_FULL
-    # assert path.match_result.completions == ['list']
-    #
-    # path = ResolutionPath(root)
-    # resolve(path, ['ans','play', 'website.yml li'], 0)
-    # assert path.status == STATUS_UNSATISFIED
-    # assert path.match_result.status == MATCH_FULL
-    # assert path.match_result.completions == ['list']
-    #
-    # path = ResolutionPath(root)
-    # resolve(path, ['ans','play', 'website.yml', 'list'], 0)
-    # assert path.status == STATUS_UNSATISFIED
-    # assert path.match_result.status == MATCH_FULL
-    # assert path.match_result.completions == ['groups','hosts','playbooks']
-    #
-    # path = ResolutionPath(root)
-    # resolve(path, ['ans','play', 'website.yml', 'list', 'g'], 0)
-    # assert path.status == STATUS_UNSATISFIED
-    # assert path.match_result.status == MATCH_FULL
-    # assert path.match_result.completions == ['groups']
-    #
-    # path = ResolutionPath(root)
-    # resolve(path, ['ans','play', 'website.yml', 'list', 'groups'], 0)
-    # assert path.status == STATUS_COMPLETED
-    # assert path.match_result.status == MATCH_FULL
-    # assert path.match_result.completions == []
+    path = ResolutionPath(root)
+    resolve(path, ['ans','play', 'website.yml'], 0)
+    assert path.status == STATUS_UNSATISFIED
+    assert path.match_result.status == MATCH_FULL
+    assert path.match_result.completions == ['list']
+
+    path = ResolutionPath(root)
+    resolve(path, ['ans','play', 'website.yml', 'li'], 0)
+    assert path.status == STATUS_UNSATISFIED
+    assert path.match_result.status == MATCH_FULL
+    assert path.match_result.completions == ['list']
+
+    path = ResolutionPath(root)
+    resolve(path, ['ans','play', 'website.yml', 'list'], 0)
+    assert path.status == STATUS_UNSATISFIED
+    assert path.match_result.status == MATCH_FULL
+    assert path.match_result.completions == ['groups','hosts','playbooks']
+
+    path = ResolutionPath(root)
+    resolve(path, ['ans','play', 'website.yml', 'list', 'g'], 0)
+    assert path.status == STATUS_UNSATISFIED
+    assert path.match_result.status == MATCH_FULL
+    assert path.match_result.completions == ['groups']
+
+    path = ResolutionPath(root)
+    resolve(path, ['ans','play', 'website.yml', 'list', 'groups'], 0)
+    assert path.status == STATUS_COMPLETED
+    assert path.match_result.status == MATCH_FULL
+    assert path.match_result.completions == []
 
 
 

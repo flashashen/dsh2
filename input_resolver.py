@@ -98,12 +98,11 @@ def resolve(path, input_segments, start_index, input_mode=MODE_COMPLETE):
         ranked = sorted(remaining_children, reverse=True, key=lambda child: child.get_match_score())
 
 
-        most_input_consumed = ranked[0].amount_input_consumed()
         if ranked[0].amount_input_consumed():
 
             # case 1: one child consumed most input, even counting fragment matches
             #   -> winner contributes completions, etc. resolution is over and solely dependent on this winning child
-            if len(ranked)>1 and ranked[1].amount_input_consumed() < most_input_consumed:
+            if len(ranked) == 1 or ranked[0].amount_input_consumed() > ranked[1].amount_input_consumed():
 
                 # As children are resolved, append to the resolved list so they won't be processed again
                 # and also so we can re-construct the 'path' of resolution
@@ -141,7 +140,7 @@ def resolve(path, input_segments, start_index, input_mode=MODE_COMPLETE):
 
                 for child in path.children:
                     path.match_result.completions.extend(child.match_result.completions)
-            break
+                break
 
 
         else:
