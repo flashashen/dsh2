@@ -88,6 +88,21 @@ def test_resolve_sequence_all_one_one():
     assert path.match_result.completions == []
 
 
+def test_execute():
+
+    def test_cmd(self, ctx):
+        print 'executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list'])
+
+    node = CmdNode('ans', exe_method=test_cmd, eval_func=eval_status_require_all_children)
+    node.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
+                       choose_value_for('list', 'groups', 'hosts', 'playbooks')])
+
+    path = ResolutionPath(node)
+    resolve(path, ['ans','play', 'website.yml', 'list', 'groups'], 0)
+
+    ctx = {}
+    execute(path, ctx)
+    # print ctx
 
 #
 #    Test match functions
@@ -269,6 +284,16 @@ def test_children_as_options():
 #     return p1
 
 
+
+
+def choose_value_for(name, *choices):
+    node = CmdNode(name, eval_func=eval_status_choose_one_child)
+    for choice in choices:
+        def f(self, ctx):
+            ctx[name] = str(self.name)
+        node.add_child(CmdNode(choice, exe_method=f))
+    # node.add_children(choices)
+    return node
 
 
 def one_of(name, *choices):

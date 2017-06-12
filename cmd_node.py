@@ -199,10 +199,15 @@ def eval_status_children_as_options(statuses):
 
 class CmdNode(object):
 
-    def __init__(self, name, cmd=None, match_func=match_against_name, eval_func=eval_status_choose_one_child):
+    def __init__(self, name, exe_method=None, match_func=match_against_name, eval_func=eval_status_choose_one_child):
         self.name = name
         self.children = []
-        self.cmd = cmd
+
+        def default_cmd(self, ctx):
+            if not self.name in ctx:
+                ctx[self.name] = 'no op'
+
+        self.exe_method = exe_method.__get__(self, CmdNode) if exe_method else default_cmd.__get__(self, CmdNode)
 
         # signature: MATCH_RESULT match(CmdNode, input, start)
         self.match = match_func.__get__(self, CmdNode)

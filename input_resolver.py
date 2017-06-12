@@ -56,8 +56,16 @@ class ResolutionPath:
 
 
 
+def execute(path, ctx):
 
-def resolve(path, input_segments, start_index, input_mode=MODE_COMPLETE):
+    for child in path.resolutions:
+        execute(child, ctx)
+
+    path.cmd_node.exe_method(ctx)
+
+
+
+def resolve(path, input_segments, start_index, ctx={}, input_mode=MODE_COMPLETE):
 
     path.match_result = path.cmd_node.match(input_segments, start_index)
     if path.match_result.status not in [MATCH_FULL]:
@@ -86,7 +94,7 @@ def resolve(path, input_segments, start_index, input_mode=MODE_COMPLETE):
 
         # depth first traversal, resolving against current position in input.
         for child in remaining_children:
-            resolve(child, input_segments, start_index, input_mode)
+            resolve(child, input_segments, start_index, ctx, input_mode)
 
         # INVARIANT - Children have all resolved as much input as possible on current input,index.
 
@@ -154,6 +162,4 @@ def resolve(path, input_segments, start_index, input_mode=MODE_COMPLETE):
         # if current node is completed there is nothing more to resolve, by definition
         if path.status == STATUS_COMPLETED:
             break
-
-
 
