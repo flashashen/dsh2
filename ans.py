@@ -1,17 +1,81 @@
-from proto import Proto
+import subprocess, sys, os, contextlib
+from cmd_node import *
 
 
-def get_proto():
-    p1 = Proto('ans')
-    p1.add_child(play())
-    p1.add_child(list())
 
-    p1.add_child(Proto('list'))
-    # p1.children[0].add_child(Proto('app1_1', True))
-    # p1.children[0].add_child(Proto('app1_2', True))
-    # p1.children[0].add_tag('testtag')
-    # p1.add_rule_one_of('testtag')
-    return p1
+@contextlib.contextmanager
+def given_dir(path):
+    """
+    Usage:
+    >>> with given_dir(prj_base):
+    ...   subprocess.call('project_script.sh')
+    """
+    if not path:
+        yield
+
+    starting_directory = os.getcwd()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(starting_directory)
+
+
+def execute_with_running_output(command, ctx):
+
+    try:
+        command = command.format(ctx=ctx)
+        print('executing: {}\n'.format(command))
+    except KeyError as e:
+        print("Variable is missing from '{}': {}".format(command, str(e)))
+
+
+
+    with given_dir(ctx['cmd_dir']):
+
+        try:
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            # Poll process for new output until finished
+            while True:
+                nextline = process.stdout.readline()
+                if nextline == '' and process.poll() is not None:
+                    break
+                sys.stdout.write(nextline)
+                sys.stdout.flush()
+
+            output = process.communicate()[0]
+            exitCode = process.returncode
+
+            if (exitCode == 0):
+                return output
+            else:
+                raise Exception(command, exitCode, output)
+
+        except subprocess.CalledProcessError as e:
+            return e.output
+        except Exception as ae:
+            return ae.message
+
+
+
+
+class CmdAns(CmdNode):
+
+
+    def shell_cmd(self, ctx):
+        # print ctx
+        ctx['cmd_dir'] = '/Users/panelson/workspace/devops/playbooks'
+        execute_with_running_output('ansible-playbook {ctx[playbook]}', ctx)
+
+
+    def __init__(self):
+
+        super(self.__class__, self).__init__('ans', self.shell_cmd)
+        self.name = 'ans'
+        self.children = []
+        self.add_child(choose_value_for('playbook', *playbooks))
+
+
 
 
 playbooks = ['ansiblize.yml',
@@ -67,15 +131,7 @@ playbooks = ['ansiblize.yml',
              'upgrade_stash.yml',
              'yum.yml']
 
-def play():
-    p = Proto('play')
-    for book in playbooks:
-        p.add_child(Proto(book))
-    return p
-
-def list():
-    p = Proto('list')
-    p.add_child(Proto('groups'))
-    p.add_child(Proto('hosts'))
-    p.add_child(Proto('playbooks'))
-    return p
+# def playbook():
+#     p = CmdNode('playbook')
+#     p.add_child(CmdNode(book))
+#     return p

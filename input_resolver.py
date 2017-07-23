@@ -61,7 +61,7 @@ def execute(path, ctx):
     for child in path.resolutions:
         execute(child, ctx)
 
-    path.cmd_node.exe_method(ctx)
+    path.cmd_node.execute(ctx)
 
 
 
@@ -71,15 +71,17 @@ def resolve(path, input_segments, start_index, ctx={}, input_mode=MODE_COMPLETE)
     if path.match_result.status not in [MATCH_FULL]:
         return
 
-    # add self to resolved list
-    # path.resolutions.append(path)
-
-    if not path.cmd_node.children:
+    # Call the cmd node get_children method. Children can be dynamic based on context and
+    # external conditions. Its up to the resolver for now to be careful with this feature.
+    # something will need to be done later to optimize so that slow calls aren't made more
+    # than is necessary
+    node_children = path.cmd_node.get_children(ctx)
+    if not node_children:
         path.status = path.cmd_node.evaluate([])
         return
 
 
-    path.children = [ResolutionPath(child) for child in path.cmd_node.children]
+    path.children = [ResolutionPath(child) for child in node_children]
     start_index = path.match_result.stop
 
     while True:
@@ -121,7 +123,7 @@ def resolve(path, input_segments, start_index, ctx={}, input_mode=MODE_COMPLETE)
                     path.match_result.status,
                     path.match_result.start,
                     ranked[0].match_result.stop,
-                    ranked[0].match_result.completions)
+                    ranked[0].match_result.completions[:])
 
                 # If the winner is unsatisfied, then don't give its peers a chance to consume more input.
                 # Otherwise change the index into the input and see if its peers can do something with the

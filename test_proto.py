@@ -8,6 +8,26 @@ import six
 #
 
 
+def test_resolve_sequence_hosts_duplicated():
+
+    # root = one_of('root', 'choice1', 'choice2')
+    # path = ResolutionPath(root)
+    # resolve(path, ['root','invalid'], 0)
+    #
+    # assert path.status == STATUS_UNSATISFIED
+    # assert path.match_result.completions == []
+
+    root = CmdNode('ans', function_evaluate_child_statuses=eval_status_require_all_children)
+    root.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
+                       all_of('list', 'groups', 'hosts', 'playbooks') ])
+
+    path = ResolutionPath(root)
+    resolve(path, ['ans','list', 'groups', 'playbooks'], 0)
+    assert path.match_result.completions == ['hosts']
+
+
+
+
 def test_root_doesnt_resolve_if_children_cant_resolve():
 
     root = one_of('root', 'choice1', 'choice2')
@@ -93,7 +113,7 @@ def test_execute():
     def test_cmd(self, ctx):
         print 'executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list'])
 
-    node = CmdNode('ans', exe_method=test_cmd, eval_func=eval_status_require_all_children)
+    node = CmdNode('ans', method_execute=test_cmd, function_evaluate_child_statuses=eval_status_require_all_children)
     node.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
                        choose_value_for('list', 'groups', 'hosts', 'playbooks')])
 
@@ -268,6 +288,21 @@ def test_children_as_options():
     # options cannot be exceeded
 
 
+
+
+def test_children_as_dir_listing():
+
+    node = CmdNode('filecmd', child_get_func=get_children_method_dir_listing())
+    path = ResolutionPath(node)
+    resolve(path, ['filecmd', 'test'], 0)
+    assert path.status == STATUS_UNSATISFIED
+    assert 'test_proto.py' in path.match_result.completions
+
+    # resolve(path, ['filecmd', 'test_proto.pyc'], 0)
+    # assert path.status == STATUS_COMPLETED
+    # assert path.match_result.status == MATCH_FULL
+
+
 #
 # def get_root():
 #     p1 = CmdNode('ans', eval_func=eval_status_choose_one_child)
@@ -284,32 +319,6 @@ def test_children_as_options():
 #     return p1
 
 
-
-
-def choose_value_for(name, *choices):
-    node = CmdNode(name, eval_func=eval_status_choose_one_child)
-    for choice in choices:
-        def f(self, ctx):
-            ctx[name] = str(self.name)
-        node.add_child(CmdNode(choice, exe_method=f))
-    # node.add_children(choices)
-    return node
-
-
-def one_of(name, *choices):
-    node = CmdNode(name, eval_func=eval_status_choose_one_child)
-    node.add_children(choices)
-    return node
-
-def all_of(name, *choices):
-    node = CmdNode(name, eval_func=eval_status_require_all_children)
-    node.add_children(choices)
-    return node
-
-def options(name, *options):
-    node = CmdNode(name, eval_func=eval_status_children_as_options)
-    node.add_children(options)
-    return node
 
 #
 # def node_play():

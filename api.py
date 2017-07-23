@@ -63,3 +63,7 @@ RESOLUTION = namedtuple('RESOLUTION', 'resolution_status, match_result, completi
 #
 #
 
+
+
+# cmd.completions(input)
+# cmd.executions(input)

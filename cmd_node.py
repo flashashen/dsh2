@@ -1,12 +1,90 @@
-import sys, subprocess, six
+import sys, subprocess, six, os
 from api import *
 # from api import INPUT_MATCH 
 from collections import defaultdict
 
 
 
+def get_children_method_dir_listing():
+    import glob
+    return lambda self, ctx: [CmdNode(p) for p in glob.glob('*')]
 
 
+def execute_func_add_self_name_value(self, ctx):
+    if not self.name in ctx:
+        ctx[self.name] = ''
+
+
+def choose_value_for(name, *choices):
+    node = CmdNode(name, function_evaluate_child_statuses=eval_status_choose_one_child)
+    for choice in choices:
+        def f(self, ctx):
+            ctx[name] = str(self.name)
+        node.add_child(CmdNode(choice, method_execute=f))
+    # node.add_children(choices)
+    return node
+
+
+def one_of(name, *choices):
+    node = CmdNode(name, function_evaluate_child_statuses=eval_status_choose_one_child)
+    node.add_children(choices)
+    return node
+
+def all_of(name, *choices):
+    node = CmdNode(name, function_evaluate_child_statuses=eval_status_require_all_children)
+    node.add_children(choices)
+    return node
+
+def options(name, *options):
+    node = CmdNode(name, function_evaluate_child_statuses=eval_status_children_as_options)
+    node.add_children(options)
+    return node
+
+
+
+
+#
+#
+# def execute(self, cmds, args, print_to_console=True):
+#
+#     if 'local_dir' in self.__dict__ and self.local_dir:
+#         od = os.getcwd()
+#         os.chdir(self.local_dir)
+#
+#     try:
+#
+#         cmd_list = self.flatten_cmd(cmds, self.cfg_obj.cmd)
+#
+#         # print('\n')
+#         output = None
+#
+#         for index, c in enumerate(cmd_list):
+#
+#             if isinstance(c, CmdProto):
+#                 c.execute(args)
+#             elif type(c) == types.MethodType:
+#                 c(args)
+#             else:
+#                 # try:
+#                 c = c.format(cfg=self.get_shell_cmd_context())
+#                 # except:
+#                 #     c = c.format(cfg=self.get_shell_cmd_context())
+#                 print('executing: {}\n'.format(c))
+#                 output = self.__execute_with_running_output(c)
+#
+#     except AttributeError as ae:
+#         output = ae.message
+#     except subprocess.CalledProcessError as e:
+#         output = e.output
+#
+#     finally:
+#         if 'local_dir' in self.__dict__ and self.local_dir:
+#             os.chdir(od)
+#
+#     if output and print_to_console:
+#         print output
+#
+#     return output
 
 def __execute_with_running_output(command):
     process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -32,7 +110,7 @@ def __execute_with_running_output(command):
 
 
 
-def match_against_name(cmd_node, input_segments, start_index=None):
+def match_against_name(self, input_segments, start_index=None):
     """
     Get a match status and stop,start indices of resovled input segments. Only a full match
     will return resolved indices. Indices are inclusive. This form of the match function, if 
@@ -48,17 +126,17 @@ def match_against_name(cmd_node, input_segments, start_index=None):
 
     if input_segments == None or len(input_segments) <= start_index:
         # If nothing is given as the input, then it matches as MATCH_EMPTY, a special case of fragment
-        return MATCH_RESULT(MATCH_EMPTY, start_index, start_index, [cmd_node.name])
+        return MATCH_RESULT(MATCH_EMPTY, start_index, start_index, [self.name])
 
     word = input_segments[start_index].strip()
 
-    if cmd_node.name.startswith(word):
-        if cmd_node.name == word:
+    if self.name.startswith(word):
+        if self.name == word:
             # Full match 'consumes' this word and provides no completions
             return MATCH_RESULT(MATCH_FULL, start_index, start_index+1, [])
         else:
             # Fragment match also 'consumes this word but also provides completions
-            return MATCH_RESULT(MATCH_FRAGMENT, start_index, start_index+1, [cmd_node.name])
+            return MATCH_RESULT(MATCH_FRAGMENT, start_index, start_index+1, [self.name])
 
     return MATCH_RESULT_NONE(start_index)
 
@@ -150,85 +228,64 @@ def eval_status_children_as_options(statuses):
 
 
 
-# 
-# def completions(node, line):
-#     return [p.completion_text for p in resolve_paths([ResolutionPath(node, line.split())])]
-
-
-
-
-
-
-
-
-    #
-    #
-    # def do(self, segments):
-    #
-    #     print('do called on {}'.format(segments))
-    #
-    #     paths = resolve_paths([ResolutionPath(self, segments)])
-    #     print '\n\ndo...\n', paths
-    #
-    #     # if len(matches.resolved) == 0:
-    #     #     print 'No commands resovled'
-    #     #     return
-    #     #
-    #     # if len(matches.resolved) > 1:
-    #     #     print 'ambiguous command. These resovled: {}. executing first.'.format(matches.resolved)
-    #     #
-    #     #
-    #     # matches.resolved[0].execute(" ".join(segments))
-    #
-    #
-    # def complete(self, line):
-    #     return self.resolve_line(line.split()).fragment
-
-
-#
-# class AllOf(CmdNode, object):
-#
-#     def __init__(self, name):
-#         super(self.__class__, self).__init__(name)
-#
-#
-
-
-
-
 
 class CmdNode(object):
 
-    def __init__(self, name, exe_method=None, match_func=match_against_name, eval_func=eval_status_choose_one_child):
+    def __init__(self, name,
+                 method_execute=execute_func_add_self_name_value,
+                 function_match_input=match_against_name,
+                 function_evaluate_child_statuses=eval_status_choose_one_child,
+                 child_get_func=None):
+
         self.name = name
-        self.children = []
 
-        def default_cmd(self, ctx):
-            if not self.name in ctx:
-                ctx[self.name] = 'no op'
+        # Bind given functions to provide behavior
+        self.execute = method_execute.__get__(self, CmdNode)
+        self.match = function_match_input.__get__(self, CmdNode)
+        self.evaluate = function_evaluate_child_statuses
 
-        self.exe_method = exe_method.__get__(self, CmdNode) if exe_method else default_cmd.__get__(self, CmdNode)
+        if child_get_func:
+            self.get_children = child_get_func.__get__(self, CmdNode)
+        else:
+            self.get_children = self.__get_static_children
+            self.__children = []
 
-        # signature: MATCH_RESULT match(CmdNode, input, start)
-        self.match = match_func.__get__(self, CmdNode)
-
-        # signature: status evaluate(statuses)
-        self.evaluate = eval_func
 
 
     def __repr__(self):
-        return "<CmdNode:{} cmd={}, children=[{}]>".format(self.name, self.cmd, str(self.children))
+            return "<CmdNode:{} cmd={}, children=[{}]>".format(self.name, self.cmd, str(self.__children))
 
-    def execute(self, str_input):
-        print "execute {} called on '{}'".format(self.name, str_input)
+    # def execute(self, str_input):
+    #     print "execute {} called on '{}'".format(self.name, str_input)
 
+    def get_children(self):
+        return self.__children
+
+
+
+
+    # The add children methods no longer belong here since children are necessarily list
+    # a static list anymore. They could instead be put into a list and contained in a
+    # closure the returns them
+
+    def __get_static_children(self, ctx):
+        return self.__children
 
     def add_child(self, node):
+
+        try:
+            len(self.__children)
+        except:
+            raise ValueError("add_child() cannot be called if a get_children method has been provided ")
+
         if node:
-            self.children.append(node if isinstance(node, CmdNode) else CmdNode(node))
+            self.__children.append(node if isinstance(node, CmdNode) else CmdNode(node))
+
 
     def add_children(self, nodes):
+
         if isinstance(nodes, six.string_types):
             nodes = nodes.split()
         for node in nodes:
             self.add_child(node if isinstance(node,CmdNode) else CmdNode(str(node)))
+
