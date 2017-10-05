@@ -14,9 +14,9 @@ from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
 from prompt_toolkit.contrib.regular_languages.lexer import GrammarLexer
 from prompt_toolkit.layout.lexers import SimpleLexer
 
-from pygments.style import Style
-from pygments.token import Token
-from pygments.styles.default import DefaultStyle
+# from pygments.style import Style
+# from pygments.token import Token
+# from pygments.styles.default import DefaultStyle
 
 from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.completion import Completer, Completion
@@ -24,8 +24,8 @@ from prompt_toolkit.completion import Completer, Completion
 import threading, time, shlex
 
 # import ans
-from cmd_node import *
-from input_resolver import *
+from node import *
+from resolver import *
 from evaluators import *
 
 def create_grammar():
@@ -98,7 +98,7 @@ def main():
     # Print a counter every second in another thread.
     running = True
     def thread():
-	i=0
+        i=0
         while running:
             i += 1
             print('i=%i' % i)
@@ -112,7 +112,7 @@ def main():
 
 
     def test_cmd(self, ctx):
-        print 'executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list'])
+        print('executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list']))
 
     node1 = CmdNode('filecmd', method_execute=test_cmd, method_evaluate=require_all_children)
     # node.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
@@ -122,18 +122,18 @@ def main():
 
     from ans import CmdAns
     node = CmdNode('root', method_match=match_always_consume_no_input)
-    # node.add_children([CmdAns(), node1])
+    node.add_children([CmdAns(), node1])
 
-    import flange
-    f = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
-    root = CmdNode('flange')
-    # choose one
-    root.add_child(CmdNode('test', get_executor_python(f.get)))
-    fget = CmdNode('get', get_executor_python(f.get))
-    # required params
-    fget = CmdNode('key')
-    # independent optional node.
-    fget = CmdNode('model', children_as_options.function_evaluate_child_statuses)
+    # import flange
+    # f = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
+    # root = CmdNode('flange')
+    # # choose one
+    # root.add_child(CmdNode('test', get_executor_python(f.get)))
+    # fget = CmdNode('get', get_executor_python(f.get))
+    # # required params
+    # fget = CmdNode('key')
+    # # independent optional node.
+    # fget = CmdNode('model', children_as_options.function_evaluate_child_statuses)
 
 
 

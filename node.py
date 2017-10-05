@@ -161,12 +161,12 @@ def get_instance(data):
         if key == 'dsh':
             pass
         elif key == 'ns':
-            print 'ns', val
+            print('ns', val)
         elif key == 'vars':
             ctx = val
-            print 'vars', val
+            print('vars', val)
         elif key == 'context':
-            print 'contexts', val
+            print('contexts', val)
         else:
             rootCmd.add_child(create_cmd_node(key,val, ctx))
     return rootCmd

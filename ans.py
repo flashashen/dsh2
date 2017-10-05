@@ -1,5 +1,5 @@
 import subprocess, sys, os, contextlib
-from cmd_node import *
+from node import *
 
 
 from executors import execute_with_running_output

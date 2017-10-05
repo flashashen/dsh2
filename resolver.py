@@ -37,11 +37,11 @@ class ResolutionPath:
 
 
     def pprint(self, level=0):
-        print "name:{}, status:{}, match:{}, resolved:{}".format(
+        print("name:{}, status:{}, match:{}, resolved:{}".format(
             self.cmd_node.name,
             self.status,
             self.match_result,
-            [c.cmd_node.name for c in self.resolutions]).ljust(level*3)
+            [c.cmd_node.name for c in self.resolutions]).ljust(level*3))
         for child in self.children:
             child.pprint(level+1)
 
