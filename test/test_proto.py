@@ -1,5 +1,6 @@
-from cmd_node import *
-from input_resolver import *
+from node import *
+from resolver import *
+from evaluators import *
 import six
 
 
@@ -17,8 +18,8 @@ def test_resolve_sequence_hosts_duplicated():
     # assert path.status == STATUS_UNSATISFIED
     # assert path.match_result.completions == []
 
-    root = CmdNode('ans', function_evaluate_child_statuses=eval_status_require_all_children)
-    root.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
+    root = CmdNode('ans', method_evaluate=require_all_children)
+    root.add_children([choose_value_for('play', ['website.yml', 'appserver.yml']),
                        all_of('list', 'groups', 'hosts', 'playbooks') ])
 
     path = ResolutionPath(root)
@@ -110,10 +111,10 @@ def test_resolve_sequence_all_one_one():
 
 def test_execute():
 
-    def test_cmd(self, ctx):
+    def test_cmd(ctx):
         print 'executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list'])
 
-    node = CmdNode('ans', method_execute=test_cmd, function_evaluate_child_statuses=eval_status_require_all_children)
+    node = CmdNode('ans', method_execute=test_cmd, method_evaluate=require_all_children)
     node.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
                        choose_value_for('list', 'groups', 'hosts', 'playbooks')])
 
@@ -154,25 +155,25 @@ def assert_match_result(result, expected_status, expected_completions=None):
 
 def assert_match_function_result_common(func, node, match_target, expected_completions=None):
 
-    node.match = func.__get__(node, None)
+    # node.match = func.__get__(node, None)
 
     # test None and empty and consumed inputs return MATCH_EMPTY
-    assert_match_result(node.match( None), MATCH_EMPTY, expected_completions)
-    assert_match_result(node.match( None, 0), MATCH_EMPTY, expected_completions)
-    assert_match_result(node.match( []), MATCH_EMPTY, expected_completions)
-    assert_match_result(node.match( [], 0), MATCH_EMPTY, expected_completions)
-    assert_match_result(node.match( ['dontcare'], 1), MATCH_EMPTY, expected_completions)
+    assert_match_result(func( None), MATCH_EMPTY, expected_completions)
+    assert_match_result(func( None, 0), MATCH_EMPTY, expected_completions)
+    assert_match_result(func( []), MATCH_EMPTY, expected_completions)
+    assert_match_result(func( [], 0), MATCH_EMPTY, expected_completions)
+    assert_match_result(func( ['dontcare'], 1), MATCH_EMPTY, expected_completions)
 
     # test fragment, full and extra as only input
-    assert_match_result(node.match( [match_target[:-1]], 0), MATCH_FRAGMENT, expected_completions)
-    assert_match_result(node.match( [match_target], 0), MATCH_FULL, expected_completions)
-    assert_match_result(node.match( [match_target+'inhibitmatch'], 0), MATCH_NONE, expected_completions)
-    assert_match_result(node.match( ['inhibitmatch'], 0), MATCH_NONE, expected_completions)
+    assert_match_result(func( [match_target[:-1]], 0), MATCH_FRAGMENT, expected_completions)
+    assert_match_result(func( [match_target], 0), MATCH_FULL, expected_completions)
+    assert_match_result(func( [match_target+'inhibitmatch'], 0), MATCH_NONE, expected_completions)
+    assert_match_result(func( ['inhibitmatch'], 0), MATCH_NONE, expected_completions)
 
     # test fragment, full and extra in middle of input
-    assert_match_result(node.match( ['dontcare1', 'dontcare2', match_target, 'dontcare3'], 2), MATCH_FULL, expected_completions)
-    assert_match_result(node.match( ['dontcare1', 'dontcare2', match_target[:-1], 'dontcare3'], 2), MATCH_FRAGMENT, expected_completions)
-    assert_match_result(node.match( ['dontcare1', 'dontcare2', match_target+'inhibitmatch', 'dontcare3'], 2), MATCH_NONE, expected_completions)
+    assert_match_result(func( ['dontcare1', 'dontcare2', match_target, 'dontcare3'], 2), MATCH_FULL, expected_completions)
+    assert_match_result(func( ['dontcare1', 'dontcare2', match_target[:-1], 'dontcare3'], 2), MATCH_FRAGMENT, expected_completions)
+    assert_match_result(func( ['dontcare1', 'dontcare2', match_target+'inhibitmatch', 'dontcare3'], 2), MATCH_NONE, expected_completions)
 
 
 
@@ -193,9 +194,9 @@ def get_standard_completions(match_target):
 
 
 
-def test_match_against_name():
+def test_match_string():
     node = CmdNode('testcmd')
-    assert_match_function_result_common(match_against_name, node, node.name, get_standard_completions(node.name) )
+    assert_match_function_result_common(get_matcher_exact_string(node.name), node, node.name, get_standard_completions(node.name) )
 
 
 
@@ -212,24 +213,24 @@ def assert_eval_function(func, expected, statuses, error_message):
 def test_choose_one_child():
 
     # completed
-    assert_eval_function(eval_status_choose_one_child, STATUS_COMPLETED, [], 'choose one with no children should be completed')
-    assert_eval_function(eval_status_choose_one_child, STATUS_COMPLETED, [STATUS_COMPLETED], 'choose one with no children should be completed')
-    assert_eval_function(eval_status_choose_one_child, STATUS_COMPLETED, [STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_COMPLETED], 'choose one with a completed child and the rest unsatisfied should be completed')
+    assert_eval_function(choose_one_child, STATUS_COMPLETED, [], 'choose one with no children should be completed')
+    assert_eval_function(choose_one_child, STATUS_COMPLETED, [STATUS_COMPLETED], 'choose one with no children should be completed')
+    assert_eval_function(choose_one_child, STATUS_COMPLETED, [STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_COMPLETED], 'choose one with a completed child and the rest unsatisfied should be completed')
 
     # satisfied
-    assert_eval_function(eval_status_choose_one_child, STATUS_SATISFIED, [STATUS_SATISFIED], 'choose one with a satisfied child should be satisfied')
-    assert_eval_function(eval_status_choose_one_child, STATUS_SATISFIED, [STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_SATISFIED], 'choose one with a satisfied child and the rest unsatisfied should be satisfied')
+    assert_eval_function(choose_one_child, STATUS_SATISFIED, [STATUS_SATISFIED], 'choose one with a satisfied child should be satisfied')
+    assert_eval_function(choose_one_child, STATUS_SATISFIED, [STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_SATISFIED], 'choose one with a satisfied child and the rest unsatisfied should be satisfied')
 
     # unsatisfied
-    status = eval_status_choose_one_child([STATUS_UNSATISFIED])
+    status = choose_one_child([STATUS_UNSATISFIED])
     assert status == STATUS_UNSATISFIED, 'choose one with only an unsatisfied child should be unsatisfied'
-    status = eval_status_choose_one_child([STATUS_EXCEEDED])
+    status = choose_one_child([STATUS_EXCEEDED])
     assert status == STATUS_UNSATISFIED, 'choose one only a exceeded child should be unsatisfied'
-    status = eval_status_choose_one_child([STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_EXCEEDED])
+    status = choose_one_child([STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_EXCEEDED])
     assert status == STATUS_UNSATISFIED, 'choose one with any exceeded children should be unsatisfied'
 
     # exceeded
-    status = eval_status_choose_one_child([STATUS_UNSATISFIED, STATUS_COMPLETED, STATUS_SATISFIED])
+    status = choose_one_child([STATUS_UNSATISFIED, STATUS_COMPLETED, STATUS_SATISFIED])
     assert status == STATUS_EXCEEDED, 'choose one with more than one satisfied or completed child should be exceeded'
 
 
@@ -237,27 +238,27 @@ def test_choose_one_child():
 def test_require_all_children():
 
     # completed
-    status = eval_status_require_all_children([])
+    status = require_all_children([])
     assert status == STATUS_COMPLETED, 'require all with no children should be completed'
-    status = eval_status_require_all_children([STATUS_COMPLETED])
+    status = require_all_children([STATUS_COMPLETED])
     assert status == STATUS_COMPLETED, 'require all with only a completed child should be completed'
-    status = eval_status_require_all_children([STATUS_COMPLETED, STATUS_COMPLETED, STATUS_COMPLETED])
+    status = require_all_children([STATUS_COMPLETED, STATUS_COMPLETED, STATUS_COMPLETED])
     assert status == STATUS_COMPLETED, 'require all with all completed children should be completed'
 
     # satisfied
-    status = eval_status_require_all_children([STATUS_SATISFIED])
+    status = require_all_children([STATUS_SATISFIED])
     assert status == STATUS_SATISFIED, 'require all with only a satisfied child should be satisfied'
-    status = eval_status_require_all_children([STATUS_SATISFIED, STATUS_SATISFIED, STATUS_COMPLETED])
+    status = require_all_children([STATUS_SATISFIED, STATUS_SATISFIED, STATUS_COMPLETED])
     assert status == STATUS_SATISFIED, 'require all with all satisfied or completed children should be satisfied'
 
     # unsatisfied
-    status = eval_status_require_all_children([STATUS_UNSATISFIED, STATUS_SATISFIED, STATUS_COMPLETED])
+    status = require_all_children([STATUS_UNSATISFIED, STATUS_SATISFIED, STATUS_COMPLETED])
     assert status == STATUS_UNSATISFIED, 'require all with any unsatisfied children should be unsatisfied'
-    status = eval_status_require_all_children([STATUS_UNSATISFIED, STATUS_SATISFIED])
+    status = require_all_children([STATUS_UNSATISFIED, STATUS_SATISFIED])
     assert status == STATUS_UNSATISFIED, 'require all with any unsatisfied children should be unsatisfied'
-    status = eval_status_require_all_children([STATUS_EXCEEDED, STATUS_COMPLETED])
+    status = require_all_children([STATUS_EXCEEDED, STATUS_COMPLETED])
     assert status == STATUS_UNSATISFIED, 'require all with any exceeded children should be unsatisfied'
-    status = eval_status_require_all_children([STATUS_UNSATISFIED])
+    status = require_all_children([STATUS_UNSATISFIED])
     assert status == STATUS_UNSATISFIED, 'require all only an unsatisfied child should be unsatisfied'
 
     # require all cannot be exceeded
@@ -266,23 +267,23 @@ def test_require_all_children():
 def test_children_as_options():
 
     # completed
-    status = eval_status_children_as_options([])
+    status = children_as_options([])
     assert status == STATUS_COMPLETED, 'options with no children should be completed'
-    status = eval_status_children_as_options([STATUS_COMPLETED])
+    status = children_as_options([STATUS_COMPLETED])
     assert status == STATUS_COMPLETED, 'options with a completed child should be completed'
-    status = eval_status_children_as_options([STATUS_COMPLETED,STATUS_COMPLETED,STATUS_COMPLETED])
+    status = children_as_options([STATUS_COMPLETED,STATUS_COMPLETED,STATUS_COMPLETED])
     assert status == STATUS_COMPLETED, 'options with all completed children should be completed'
 
     # satisfied
-    status = eval_status_children_as_options([STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_UNSATISFIED])
+    status = children_as_options([STATUS_UNSATISFIED, STATUS_UNSATISFIED, STATUS_UNSATISFIED])
     assert status == STATUS_SATISFIED , 'options with all un-satisfied children should still be satisfied'
-    status = eval_status_children_as_options([STATUS_COMPLETED,STATUS_COMPLETED, STATUS_SATISFIED])
+    status = children_as_options([STATUS_COMPLETED,STATUS_COMPLETED, STATUS_SATISFIED])
     assert status == STATUS_SATISFIED , 'options with all satisfied or completed children should be satisfied'
 
     # unsatisfied
-    status = eval_status_children_as_options([STATUS_EXCEEDED])
+    status = children_as_options([STATUS_EXCEEDED])
     assert status == STATUS_UNSATISFIED, 'options with only an exceeded child should be unsatisfied'
-    status = eval_status_children_as_options([STATUS_EXCEEDED , STATUS_COMPLETED, STATUS_COMPLETED])
+    status = children_as_options([STATUS_EXCEEDED , STATUS_COMPLETED, STATUS_COMPLETED])
     assert status == STATUS_UNSATISFIED , 'options with any exceeded children should be unsatisfied'
 
     # options cannot be exceeded
@@ -305,7 +306,7 @@ def test_children_as_dir_listing():
 
 #
 # def get_root():
-#     p1 = CmdNode('ans', eval_func=eval_status_choose_one_child)
+#     p1 = CmdNode('ans', eval_func=choose_one_child)
 #     p1.add_child(CmdNode('list'))
 #     p1.add_child(CmdNode('play'))
 #     # p1.add_child(play())
@@ -340,3 +341,100 @@ def test_children_as_dir_listing():
 #     print get_root().children
 #     res = get_root().complete('ans')
 #     print res
+
+
+
+
+import yaml, flange, jsonschema
+with open('../schema.yml') as f:
+    DSH_SCHEMA = yaml.load(f)
+with open('example.yml') as f:
+    DSH_EXAMPLE = yaml.load(f)
+
+MODULE_NAME = __name__.replace('.','/')
+
+
+
+from executors import get_executor_shell
+#
+#
+# def create_cmd_node(key, val, ctx):
+#     """
+#     handles "#/definitions/type_command"
+#
+#     :param key:
+#     :param val:
+#     :param ctx:
+#     :return:
+#     """
+#     # command can be specified by a simple string
+#     if isinstance(val, six.string_types):
+#         return CmdNode(key, context=ctx, method_execute=get_executor_shell(val))
+#
+#     # command can be a list of commands (nesting allowed)
+#     elif isinstance(val, list):
+#         root = CmdNode(key, context=ctx)
+#         for i,c in enumerate(val):
+#             root.add_child(create_cmd_node(key+'_'+str(i+1)),val)
+#         return root
+#
+#     # command can be an dict with keys {do,help,env}
+#     elif isinstance(val, dict):
+#         root = CmdNode(key, context=ctx)
+#         root.add_child(create_cmd_node(key+'_do',val, ctx=val['vars']))
+#         # for do in val['do']:
+#         #     if isinstance(val, six.string_types):
+#         #         return CmdNode(key, context=ctx, method_execute=get_executor_shell(val))
+#         #     elif isinstance(do, list):
+#         #         root.add_child(create_cmd_node('do',val))
+#         #     else:
+#         #         raise ValueError("value of 'do' in command configuration must be a string of a list. type is {}".format(type(do)))
+#         return root
+#
+#     else:
+#         raise ValueError("value of command {} must be a string, list, or dict. type is {}".format(key, type(val)))
+#
+#
+#
+# def get_instance(data):
+#     rootCmd = CmdNode('root')
+#     for key,val in data.iteritems():
+#         ctx = {}
+#         if key == 'dsh':
+#             pass
+#         elif key == 'ns':
+#             print 'ns', val
+#         elif key == 'vars':
+#             ctx = val
+#             print 'vars', val
+#         elif key == 'context':
+#             print 'contexts', val
+#         else:
+#             rootCmd.add_child(create_cmd_node(key,val, ctx))
+#     return rootCmd
+#
+#
+#
+# DSH_FLANGE_PLUGIN = {'cmdctx': {
+#         'type': 'FLANGE.TYPE.PLUGIN',
+#         'schema': 'python://{}.dsh_schema'.format(MODULE_NAME),
+#         'factory': 'python://{}.get_instance'.format(MODULE_NAME)
+#     }
+# }
+
+def test_dsh_schema():
+
+    # First make sure the example conforms to the schema
+    jsonschema.validate(DSH_EXAMPLE, DSH_SCHEMA)
+
+    # Then, check that flange discovers the example as in instance of the model
+    f = flange.from_file('example.yml',root_ns='root',)
+    f.register('cmdctx', DSH_SCHEMA)
+    assert f.get('root', 'cmdctx')
+
+
+def test_flange_config_model_registration():
+    # The initial data contains the test plugin registation
+    f = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
+    assert f.get('dsh', 'cmdctx')
+

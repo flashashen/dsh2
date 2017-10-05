@@ -1,0 +1,107 @@
+#
+#
+#   config schema V2.
+#
+#
+
+
+allOf:
+ # dsh marker
+  - type: object
+    properties:
+      dsh:
+        $ref: "#/definitions/dsh_versions"
+    required:
+      - dsh
+  - $ref: "#/definitions/type_context"
+
+
+definitions:
+
+    dsh_versions: { "enum": [1,2] }
+
+    root:
+      type: object
+      properties:
+        dsh:
+          $ref: "#/definitions/type_context"
+      additionalProperties: true
+      required:
+        - dsh
+
+    type_context:
+        type: object
+        properties:
+            # namespace of this context. 'apps.app' resolves to dsh command 'dsh>apps app'
+            dsh:
+              $ref: "#/definitions/dsh_versions"
+            ns:
+              type: string
+            vars:
+                $ref: "#/definitions/type_vars"
+            contexts:
+                type: object
+                additionalProperties:
+                  $ref: "#/definitions/type_context"
+            # Support an explicit "commands" element so that a var can be used as it"s value. This allows
+            # a single workflow to be defined once as a set of commands, and then re-used in different
+            # environments/contexts. Ex {contexts: {prod: {commands: *common_cmds, vars: {host: prod_host}}}
+            commands:
+                type: object
+                additionalProperties:
+                  $ref: "#/definitions/type_command"
+
+        # root level keys are interpreted as commands
+        additionalProperties:
+          $ref: "#/definitions/type_command"
+
+
+    type_contexts:
+        type: object
+        additionalProperties:
+            anyOf:
+              - $ref: "#/definitions/type_context"
+
+
+    type_command:
+        anyOf:
+          # simple string shell commmand
+          - type: string
+
+          # long form where all options can be specified
+          - type: object
+            properties:
+                help:
+                  type: string
+                vars:
+                  $ref: "#/definitions/type_vars"
+                do:
+                  $ref: "#/definitions/type_command"
+                dsh:
+                  $ref: "#/definitions/dsh_version"
+
+            additionalProperties: false
+            required:
+              - do
+
+          # call another dsh command: "dsh_ctx1.dsh_ctx2.cmd_name: arguments"
+#          - type: object
+#            minProperties: 1
+#            maxProperties: 1
+#            additionalProperties:
+#              type: string
+
+          # array of self
+          - type: array
+            items:
+              $ref: "#/definitions/type_command"
+
+
+    type_vars:
+        type: object
+        additionalProperties:
+            oneOf:
+              - type: string
+              - type: object
+
+

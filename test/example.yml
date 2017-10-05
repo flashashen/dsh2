@@ -1,0 +1,96 @@
+
+otherstuff: don't care
+
+
+dsh: 2
+
+
+#
+# ns - Set the context namespace
+#
+ns: root.subcmd
+
+
+
+#
+#   Commands
+#
+
+cmd_string: "!echo 'deafult is a shell command'"
+
+cmd_do_list:
+  help: description or help text
+  do:
+   # a do item with periods indicates a dsh command ev
+    - '!ls -l arg1 arg2'
+    - 'ans rcmd ls -l'
+    - "{{flange.dotdict_dynamic_property_lookup}}"
+
+
+cmd_do_nested:
+  help: demo nested cmd object with parent and child do objects
+  vars:
+    var1: parent val1
+  do:
+    - "! echo this cmd is defined in parent. {{var1}} should equal 'parent val1'"
+    - help: demo nested cmd object INNER
+      vars:
+        # overrides the value of var1 set in parent do
+        var1: child val1
+      do: "! echo this cmd is defined in child. {{var1}} should equual 'child val1'"
+
+
+commands:
+  cmd1: '!echo this is another way to specify commands in a context'
+  cmd2: "!the 'commands' element can receive the contents of a variable. see below"
+
+
+
+#
+#   Vars
+#
+vars:
+
+  # Dump any object into a var
+  pcmds: &pcmds
+      up: invcommand platform build  cfg edit docker stack deploy -c platform/docker-compose.yml *platform_stack_name
+      stop: docker stack remove *platform_stack_name
+      build: docker-compose -f platform/docker-compose.yml build
+      ps: docker stack ps *platform_stack_name
+
+  # string var. contents of {{ }} are evaluated by dsh
+  flange_sourced_var: "{{ flange mget some_flange_model_key }}"
+
+
+
+#
+#   Contexts
+#
+contexts:
+
+  # Set a top level / root variable by setting 'ns' to empty string
+  global:
+    ns: ''
+    SWARM_HOST: manager01.an.local
+
+
+  prod:
+    # ns=default, env='prod', name='var_name', value='val_prod'
+    vars:
+      # ns=default, env=default/none, name='var_name', value='val_default'
+       host: manager01.an.local
+    commands: *pcmds
+
+  dev:
+    # ns=default, env='dev', name='var_name', value='val_dev'
+    vars:
+      # ns=default, env=default/none, name='var_name', value='val_default'
+       host: localhost
+    commands: *pcmds
+
+
+  platform:
+    up: docker stack deploy -c platform/docker-compose.yml *platform_stack_name
+    stop: docker stack remove *platform_stack_name
+    build: docker-compose -f platform/docker-compose.yml build
+    ps: docker stack ps *platform_stack_name

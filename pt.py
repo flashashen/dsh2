@@ -26,7 +26,7 @@ import threading, time, shlex
 # import ans
 from cmd_node import *
 from input_resolver import *
-
+from evaluators import *
 
 def create_grammar():
     return compile("""
@@ -114,15 +114,34 @@ def main():
     def test_cmd(self, ctx):
         print 'executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list'])
 
-
-    node = CmdNode('ans', method_execute=test_cmd, function_evaluate_child_statuses=eval_status_require_all_children)
+    node1 = CmdNode('filecmd', method_execute=test_cmd, method_evaluate=require_all_children)
     # node.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
     #                    all_of('list', 'groups', 'hosts', 'playbooks') ])
-    node.add_child(CmdNode('filecmd', child_get_func=get_children_method_dir_listing()))
+    node1.add_child(CmdNode('filecmd', child_get_func=get_children_method_dir_listing()))
 
 
-    # from ans import CmdAns
-    # node = CmdAns();
+    from ans import CmdAns
+    node = CmdNode('root', method_match=match_always_consume_no_input)
+    # node.add_children([CmdAns(), node1])
+
+    import flange
+    f = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
+    root = CmdNode('flange')
+    # choose one
+    root.add_child(CmdNode('test', get_executor_python(f.get)))
+    fget = CmdNode('get', get_executor_python(f.get))
+    # required params
+    fget = CmdNode('key')
+    # independent optional node.
+    fget = CmdNode('model', children_as_options.function_evaluate_child_statuses)
+
+
+
+
+
+
+
+
     # Cmd('ans').option('verbose').option('user').choose('a','b','c').all('d','e')
 
 

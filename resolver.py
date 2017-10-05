@@ -58,9 +58,12 @@ class ResolutionPath:
 
 def execute(path, ctx):
 
+    # let every resolved node in the input execute. In many cases, the effect of this will
+    # be to setup the context/params for the top level command
     for child in path.resolutions:
         execute(child, ctx)
 
+    # execute the top level command
     path.cmd_node.execute(ctx)
 
 
