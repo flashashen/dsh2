@@ -137,3 +137,4 @@ Session.vim
 
 
 /dsh2.egg-info/
+/.tox/

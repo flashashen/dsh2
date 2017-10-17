@@ -7,7 +7,7 @@ from executors import execute_with_running_output
 class CmdAns(CmdNode):
 
 
-    def shell_cmd(self, ctx):
+    def shell_cmd(self, matched_result, ctx):
         # print ctx
         ctx['cmd_dir'] = '/Users/panelson/workspace/devops/playbooks'
         execute_with_running_output('ansible-playbook {ctx[playbook]}', ctx)
@@ -18,7 +18,7 @@ class CmdAns(CmdNode):
         super(self.__class__, self).__init__('ans', self.shell_cmd)
         self.name = 'ans'
         self.children = []
-        self.add_child(choose_value_for('playbook', playbooks))
+        self.add_child(node_choose_value_for('playbook', playbooks))
 
 
 

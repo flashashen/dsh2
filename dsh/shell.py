@@ -6,33 +6,22 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.styles import style_from_dict
 from prompt_toolkit.token import Token
-from prompt_toolkit.shortcuts import confirm
 from prompt_toolkit.key_binding.defaults import load_key_bindings_for_prompt
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.contrib.regular_languages.compiler import compile
-from prompt_toolkit.contrib.regular_languages.completion import GrammarCompleter
-from prompt_toolkit.contrib.regular_languages.lexer import GrammarLexer
-from prompt_toolkit.layout.lexers import SimpleLexer
-
-# from pygments.style import Style
-# from pygments.token import Token
-# from pygments.styles.default import DefaultStyle
-
-from prompt_toolkit.contrib.completers import WordCompleter
 from prompt_toolkit.completion import Completer, Completion
+import shlex
 
-import threading, time, shlex
+import threading, time
 
-# import ans
-from node import *
-from resolver import *
-from evaluators import *
+import node, resolver
 
-def create_grammar():
-    return compile("""
-        (\s*  (?P<operator1>[a-z]+)   \s+   (?P<var1>[0-9.]+)   \s+   (?P<var2>[0-9.]+)   \s*) |
-        (\s*  (?P<operator2>[a-z]+)   \s+   (?P<var1>[0-9.]+)   \s*)
-    """)
+
+# def create_grammar():
+#     return compile("""
+#         (\s*  (?P<operator1>[a-z]+)   \s+   (?P<var1>[0-9.]+)   \s+   (?P<var2>[0-9.]+)   \s*) |
+#         (\s*  (?P<operator2>[a-z]+)   \s+   (?P<var1>[0-9.]+)   \s*)
+#     """)
 
 
 style = style_from_dict({
@@ -43,6 +32,7 @@ style = style_from_dict({
 })
 
 
+counter = 0
 
 class ProtoCompleter(Completer):
 
@@ -50,12 +40,15 @@ class ProtoCompleter(Completer):
         self.root_proto = proto
 
     def get_completions(self, document, complete_event):
+        global counter
+        counter += 1
+        # print('**********************  get completions {} **********************'.format(counter))
 
-        path = ResolutionPath(self.root_proto)
-        resolve(path, shlex.split(document.text_before_cursor), 0)
+        path = resolver.ResolutionPath(self.root_proto)
+        resolver.resolve(path, shlex.split(document.text_before_cursor), 0)
         c = path.match_result.completions
 
-        # print '\ncompletions: ', c
+        print('\ncompletions: ', c)
         # print "text before cursor: '", document.text_before_cursor, "'"
         # print "text after cursor: '", document.text_after_cursor, "'"
         # print "char before cursor: ", document.char_before_cursor
@@ -114,27 +107,34 @@ def main():
     def test_cmd(self, ctx):
         print('executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list']))
 
-    node1 = CmdNode('filecmd', method_execute=test_cmd, method_evaluate=require_all_children)
-    # node.add_children([choose_value_for('play', 'website.yml', 'appserver.yml'),
-    #                    all_of('list', 'groups', 'hosts', 'playbooks') ])
-    node1.add_child(CmdNode('filecmd', child_get_func=get_children_method_dir_listing()))
+    # node1 = CmdNode('filecmd', method_execute=test_cmd, method_evaluate=require_all_children)
+    # node1.add_child(CmdNode('filecmd', child_get_func=get_children_method_dir_listing()))
+
 
 
     from ans import CmdAns
-    node = CmdNode('root', method_match=match_always_consume_no_input)
-    node.add_children([CmdAns(), node1])
+    import flange
+    # fl = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
+    FG = flange.Flange(
+        data=node.DSH_FLANGE_PLUGIN,
+        root_ns='prj',
+        file_patterns=['.cmd.*'],
+        # base_dir='.',
+        file_search_depth=3)
 
-    # import flange
-    # f = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
-    # root = CmdNode('flange')
-    # # choose one
-    # root.add_child(CmdNode('test', get_executor_python(f.get)))
-    # fget = CmdNode('get', get_executor_python(f.get))
-    # # required params
-    # fget = CmdNode('key')
-    # # independent optional node.
-    # fget = CmdNode('model', children_as_options.function_evaluate_child_statuses)
 
+    root = FG.get('prj', )
+    root = node.node_root().one_of([
+        node.CmdNode('junk'),
+            # CmdAns(),
+            # CmdNode(
+            #     'filecmd',
+            #     method_execute=test_cmd,
+            #     method_evaluate=require_all_children).add_child(
+            #         CmdNode('filecmd', child_get_func=get_children_method_dir_listing())),
+        node.CmdNode('flange').add_child(
+            node.node_python('get', FG.get, [node.node_argument('key')], [node.node_argument('model')]))
+        ])
 
 
 
@@ -163,7 +163,7 @@ def main():
             try:
                 text = prompt('> ',
                 # lexer=lexer,
-                completer=ProtoCompleter(node),
+                completer=ProtoCompleter(root),
                 get_bottom_toolbar_tokens=get_bottom_toolbar_tokens,
                 style=style,
                 key_bindings_registry=registry,
@@ -174,9 +174,9 @@ def main():
                 #answer = confirm('Should we do that? (y/n) ')
                 #if answer:
 
-                path = ResolutionPath(node)
-                resolve(path, shlex.split(text), 0)
-                execute(path, {})
+                path = resolver.ResolutionPath(root)
+                resolver.resolve(path, shlex.split(text), 0)
+                resolver.execute(path, {})
             except KeyboardInterrupt as e:
                 pass
     except EOFError as e:

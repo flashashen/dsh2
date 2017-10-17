@@ -13,20 +13,29 @@ STATUS_UNSATISFIED = 'UNSATISFIED'
 STATUS_SATISFIED = 'SATISFIED'
 STATUS_COMPLETED = 'COMPLETED'
 STATUS_EXCEEDED = 'EXCEEDED'
-STATUS_UNRESOLVED = 'UNRESOLVED'
 
 MODE_COMPLETE = 'MODE_COMPLETE'
 MODE_EXECUTE = 'MODE_EXECUTE'
+
+NODE_ANONYMOUS_PREFIX = '_ANON_'
+
+#
+#   Exceptions
+#
+class NodeUnsatisfiedError(Exception):
+    pass
+
+
 
 #
 #   Match
 #
 #   INPUT_MATCH = cmd_node.match(input_segments, start_index)
 #
-MATCH_RESULT = namedtuple('MATCH_RESULT', 'status start stop completions')
+MATCH_RESULT = namedtuple('MATCH_RESULT', 'status start stop completions matched_input')
 
 def MATCH_RESULT_NONE(start_index=0):
-    return MATCH_RESULT(MATCH_NONE, start_index, start_index, [])
+    return MATCH_RESULT(MATCH_NONE, start_index, start_index, [], None)
 
 
 #

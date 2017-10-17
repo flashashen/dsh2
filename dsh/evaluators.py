@@ -4,6 +4,12 @@ from collections import defaultdict
 
 
 
+def no_children(children):
+    if children:
+        raise ValueError('This evaluation method is not valid for nodes with children')
+    return STATUS_COMPLETED
+
+
 
 def require_all_children(statuses):
     """
