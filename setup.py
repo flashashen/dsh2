@@ -28,9 +28,7 @@ setup(
     platforms='osx,linux,mswindows',
     keywords = "shell console configuration yaml object registry",
     long_description=README_TEXT,
-    # package_dir = {'': 'src'},
     packages=['dsh'],
-    # py_modules=['dsh2', ''],
     tests_require = ['nose','jsonschema'],
     test_suite="nose.collector",
     install_requires=[
@@ -40,6 +38,6 @@ setup(
     ],
     entry_points='''
         [console_scripts]
-        dsh2=dsh.shell:main
+        dsh2=dsh.main:main
     ''',
 )

@@ -1,3 +1,3 @@
 
-
-import shell.main as run
+#
+# from shell import main as run

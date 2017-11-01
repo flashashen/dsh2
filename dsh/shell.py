@@ -10,11 +10,9 @@ from prompt_toolkit.key_binding.defaults import load_key_bindings_for_prompt
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.completion import Completer, Completion
-import shlex
+import shlex, threading, time
 
-import threading, time
 
-import node, resolver
 
 
 # def create_grammar():
@@ -44,11 +42,11 @@ class ProtoCompleter(Completer):
         counter += 1
         # print('**********************  get completions {} **********************'.format(counter))
 
-        path = resolver.ResolutionPath(self.root_proto)
-        resolver.resolve(path, shlex.split(document.text_before_cursor), 0)
+        path = self.root_proto.resolve_input(document.text_before_cursor)
+        # resolver.resolve(path, shlex.split(document.text_before_cursor), 0)
         c = path.match_result.completions
 
-        print('\ncompletions: ', c)
+        # print('\ncompletions: ', c)
         # print "text before cursor: '", document.text_before_cursor, "'"
         # print "text after cursor: '", document.text_after_cursor, "'"
         # print "char before cursor: ", document.char_before_cursor
@@ -64,9 +62,34 @@ class ProtoCompleter(Completer):
                     display_meta=None,
                     get_display_meta=None)
 
+#
+#
+# def node_interactive_shell():
+#     return node.CmdNode(
+#         'dsh',
+#         method_match=matchers.match_always_consume_no_input,
+#         method_evaluate=evaluators.choose_one_child,
+#         method_execute=executors.get_executor_return_child_result_value())
+#
+#
+#
+# def execute_context(node, ctx, matched_input, child_results):
+#
+#     # If there are children that returned a result, then just pass those on.
+#     # In this case the given node is acting as a container
+#     if child_results:
+#         return child_results
+#     # If child node results are available, then this node is assumed to be
+#     # at the end of the input and will act as a interactive subcontext/shell
+#     else:
+#         return run(node)
+#
+#
+# def get_executor_shell(node):
+#     return lambda ctx, matched_input, child_results: execute_context(node, ctx, child_results)
 
 
-def main():
+def run(node):
     history = InMemoryHistory()
 
     def get_bottom_toolbar_tokens(cli):
@@ -90,103 +113,42 @@ def main():
 
     # Print a counter every second in another thread.
     running = True
-    def thread():
-        i=0
-        while running:
-            i += 1
-            print('i=%i' % i)
-            time.sleep(1)
-    t = threading.Thread(target=thread)
-    t.daemon = True
-    # t.start()
+    # def thread():
+    #     i=0
+    #     while running:
+    #         i += 1
+    #         print('i=%i' % i)
+    #         time.sleep(1)
+    # t = threading.Thread(target=thread)
+    # t.daemon = True
 
-    def get_title():
-        return 'This is the title'
+    completer = ProtoCompleter(node)
+    # path = resolver.ResolutionPath(node)
 
-
-    def test_cmd(self, ctx):
-        print('executing test cmd. play={}, list={}'.format(ctx['play'],ctx['list']))
-
-    # node1 = CmdNode('filecmd', method_execute=test_cmd, method_evaluate=require_all_children)
-    # node1.add_child(CmdNode('filecmd', child_get_func=get_children_method_dir_listing()))
-
-
-
-    from ans import CmdAns
-    import flange
-    # fl = flange.Flange(data = DSH_FLANGE_PLUGIN, root_ns='prj', file_patterns=['.cmd.yml'], base_dir='~/workspace', file_search_depth=2)
-    FG = flange.Flange(
-        data=node.DSH_FLANGE_PLUGIN,
-        root_ns='prj',
-        file_patterns=['.cmd.*'],
-        # base_dir='.',
-        file_search_depth=3)
-
-
-    root = FG.get('prj', )
-    root = node.node_root().one_of([
-        node.CmdNode('junk'),
-            # CmdAns(),
-            # CmdNode(
-            #     'filecmd',
-            #     method_execute=test_cmd,
-            #     method_evaluate=require_all_children).add_child(
-            #         CmdNode('filecmd', child_get_func=get_children_method_dir_listing())),
-        node.CmdNode('flange').add_child(
-            node.node_python('get', FG.get, [node.node_argument('key')], [node.node_argument('model')]))
-        ])
-
-
-
-
-
-
-
-    # Cmd('ans').option('verbose').option('user').choose('a','b','c').all('d','e')
-
-
-    # import test_proto
-    # p1 = test_proto.get_proto()
-    # p1 = Proto('root')
-    # p1 = Proto('root')
-    # p1.add_child(Proto('app1'))
-    # p1.add_child(Proto('app2'))
-    # p1.children[0].add_child(Proto('app1_1', True))
-    # p1.children[0].add_child(Proto('app1_2', True))
-    # p1.children[0].add_tag('testtag')
-    # p1.add_rule_one_of('testtag')
-
-
-    text = ''
     try:
         while True:
             try:
                 text = prompt('> ',
                 # lexer=lexer,
-                completer=ProtoCompleter(root),
-                get_bottom_toolbar_tokens=get_bottom_toolbar_tokens,
-                style=style,
-                key_bindings_registry=registry,
-                patch_stdout=True,
-                get_title=None, # get_title,
-                history=history)
+                    completer=completer,
+                    get_bottom_toolbar_tokens=get_bottom_toolbar_tokens,
+                    style=style,
+                    key_bindings_registry=registry,
+                    patch_stdout=True,
+                    get_title=None, # get_title,
+                    history=history)
 
-                #answer = confirm('Should we do that? (y/n) ')
-                #if answer:
-
-                path = resolver.ResolutionPath(root)
-                resolver.resolve(path, shlex.split(text), 0)
-                resolver.execute(path, {})
+                node.execute(None, text, None)
+                # resolver.resolve(path, shlex.split(text), 0)
+                # resolver.execute(path, {})
             except KeyboardInterrupt as e:
                 pass
     except EOFError as e:
         pass
 
-
     # Stop thread.
-    running = False
+    # running = False
 
+    return 0
 
-if __name__ == '__main__':
-    main()
 

@@ -1,7 +1,7 @@
 
 import flange
 
-print dir(flange)
+# print dir(flange)
 FG = flange.Flange(
     root_ns='prj',
     file_patterns=['.cmd.yml'],
