@@ -1,4 +1,4 @@
-import random, string, six, os, traceback, sys, shlex
+import random, string, six, os, traceback, sys, shlex, os, contextlib
 from api import *
 import matchers
 import executors
@@ -48,18 +48,6 @@ def node_choose_value_for(name, choices, usage=None):
         choice.method_execute=f
         node.add_child(choice)
     return node
-
-
-
-#
-# def node_root():
-#     # normal root node will be just a container where one command is selected and the
-#     # result should be the result of that single selected child
-#     return CmdNode(
-#         'root',
-#         method_match=matchers.match_always_consume_no_input,
-#         method_evaluate=evaluators.choose_one_child,
-#         method_execute=executors.get_executor_return_child_result_value())
 
 
 
@@ -117,7 +105,7 @@ def node_root():
         'root',
         method_match=matchers.match_always_consume_no_input,
         method_evaluate=evaluators.choose_one_child)
-    node.execute = lambda ctx, matched_input, child_results: resolve_and_execute(node, ctx=None, matched_input=None, child_results=None)
+    node.execute = lambda ctx, matched_input, child_results: executors.get_executor_return_child_results()
     return node
 
 
@@ -253,16 +241,42 @@ class CmdNode(object):
         return self
 
 
-    def resolve_input(self, input):
+    def resolve_input(self, matched_input):
         path = ResolutionPath(self)
-        resolve(path, shlex.split(input) if input else [], 0)
+        if matched_input and isinstance(matched_input, six.string_types):
+            matched_input = shlex.split(matched_input)
+        resolve(path, matched_input if matched_input else [], 0)
         return path
 
 
 
-def get_children_method_dir_listing():
+
+
+@contextlib.contextmanager
+def given_dir(path):
+    """
+    Usage:
+    >>> with given_dir(prj_base):
+    ...   subprocess.call('project_script.sh')
+    """
+    if not path:
+        yield
+
+    starting_directory = os.getcwd()
+    try:
+        os.chdir(os.path.abspath(os.path.expanduser(path)))
+        yield
+    finally:
+        os.chdir(starting_directory)
+
+
+
+def get_children_method_dir_listing(dir='.'):
     import glob
-    return lambda ctx: [CmdNode(p) for p in glob.glob('*')]
+    def dir_listing(ctx):
+        with given_dir(dir):
+            return [CmdNode(p) for p in glob.glob('*')]
+    return dir_listing
 
 
 
@@ -479,11 +493,4 @@ def resolve(path, input_segments, start_index=0, ctx={}, input_mode=MODE_COMPLET
         if path.status == STATUS_COMPLETED:
             break
 
-
-
-#
-#
-#   Flange setup
-#
-#
 

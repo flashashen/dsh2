@@ -12,7 +12,7 @@ def match_always_consume_no_input(input_segments, start_index=None):
     :param start_index:
     :return:
     """
-    return MATCH_RESULT(MATCH_FULL, start_index, start_index, [], '')
+    return MATCH_RESULT(MATCH_FULL, start_index, start_index, [], [])
 
 
 match_any_word = lambda input, index=None: match_string(None, input, index)
@@ -42,21 +42,21 @@ def match_string(str, input_segments, start_index=0):
 
     if input_segments == None or len(input_segments) <= start_index:
         # If nothing is given as the input, then it matches as MATCH_EMPTY, a special case of fragment
-        return MATCH_RESULT(MATCH_EMPTY, start_index, start_index, [str] if str else [], '')
+        return MATCH_RESULT(MATCH_EMPTY, start_index, start_index, [str] if str else [], [])
 
     word = input_segments[start_index].strip()
 
     # If the string is empty then just match anything
     if not str:
-        return MATCH_RESULT(MATCH_FULL, start_index, start_index+1, [], word)
+        return MATCH_RESULT(MATCH_FULL, start_index, start_index+1, [], [word])
 
     if str.startswith(word):
         if str == word:
             # Full match 'consumes' this word and provides no completions
-            return MATCH_RESULT(MATCH_FULL, start_index, start_index+1, [], word)
+            return MATCH_RESULT(MATCH_FULL, start_index, start_index+1, [], [word])
         else:
             # Fragment match also 'consumes this word but also provides completions
-            return MATCH_RESULT(MATCH_FRAGMENT, start_index, start_index+1, [str], word)
+            return MATCH_RESULT(MATCH_FRAGMENT, start_index, start_index+1, [str], [word])
 
     return MATCH_RESULT_NONE(start_index)
 

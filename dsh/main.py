@@ -63,8 +63,13 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
 
 
 
-def node_dsh_context(data, name='root'):
-    rootCmd = node.CmdNode(name)
+def node_dsh_context(data, name=None):
+
+    if name:
+        rootCmd = node.CmdNode(name)
+    else:
+        rootCmd = node.node_root()
+
     for key, val in data.iteritems():
         ctx = {}
         if key == 'dsh':
@@ -90,6 +95,8 @@ def node_dsh_context(data, name='root'):
 
 
 def main():
+
+    print 'main called'
 
     import flange
     FG = flange.Flange(

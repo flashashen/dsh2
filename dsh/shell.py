@@ -12,7 +12,7 @@ from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.completion import Completer, Completion
 import shlex, threading, time
 
-
+import node
 
 
 # def create_grammar():
@@ -89,7 +89,7 @@ class ProtoCompleter(Completer):
 #     return lambda ctx, matched_input, child_results: execute_context(node, ctx, child_results)
 
 
-def run(node):
+def run(cmdnode):
     history = InMemoryHistory()
 
     def get_bottom_toolbar_tokens(cli):
@@ -122,8 +122,7 @@ def run(node):
     # t = threading.Thread(target=thread)
     # t.daemon = True
 
-    completer = ProtoCompleter(node)
-    # path = resolver.ResolutionPath(node)
+    completer = ProtoCompleter(cmdnode)
 
     try:
         while True:
@@ -138,9 +137,9 @@ def run(node):
                     get_title=None, # get_title,
                     history=history)
 
-                node.execute(None, text, None)
-                # resolver.resolve(path, shlex.split(text), 0)
-                # resolver.execute(path, {})
+                # node.execute(None, text, None)
+                # / node.resolve(path, shlex.split(text), 0)
+                node.resolve_and_execute(cmdnode, ctx=None, matched_input=text, child_results=None)
             except KeyboardInterrupt as e:
                 pass
     except EOFError as e:

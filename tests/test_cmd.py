@@ -297,20 +297,6 @@ def test_resolve_sequence_all_one_one():
     assert path.match_result.completions == []
 
 
-def test_execute():
-
-    def test_cmd(ctx, match_result, child_results):
-        print 'executing test cmd. play={}, list={}'.format(child_results['play'], child_results['list'])
-
-    n = node.CmdNode('ans', method_execute=test_cmd, method_evaluate=evaluators.require_all_children)
-    n.add([node.node_choose_value_for('play', ['website.yml', 'appserver.yml']),
-                       node.node_choose_value_for('list', ['groups', 'hosts', 'playbooks'])])
-
-
-    node.resolve_and_execute('ans play website.yml list groups')
-
-    # print ctx
-
 #
 #    Test match functions
 #
@@ -479,26 +465,37 @@ def test__children_as_options():
 
 def test_children_as_dir_listing():
 
-    n = node.CmdNode('filecmd', child_get_func=node.get_children_method_dir_listing())
+    n = node.CmdNode('filecmd', child_get_func=node.get_children_method_dir_listing('dsh'))
     path = node.ResolutionPath(n)
 
-    node.resolve(path, ['filecmd', 'example.yml'], 0)
+    node.resolve(path, ['filecmd', 'schema.yml'], 0)
     assert path.status == api.STATUS_COMPLETED
 
-    node.resolve(path, ['filecmd', 'example'], 0)
+    node.resolve(path, ['filecmd', 'schema'], 0)
     assert path.status == api.STATUS_UNSATISFIED
-    assert 'example.yml' in path.match_result.completions
+    assert 'schema.yml' in path.match_result.completions
 
 
 
 def test_shell_command():
 
     n = node.CmdNode('testls', method_execute=executors.get_executor_shell_cmd('ls', True))
-    assert os.path.pardir in n.execute(None, '-a', None)
+    assert os.path.pardir in n.execute(None, ['ls', '-a'], None)
 
-    # node.resolve(path, ['filecmd', 'test_proto.pyc'], 0)
-    # assert path.status == api.STATUS_COMPLETED
-    # assert path.match_result.status == api.MATCH_FULL
+
+
+def test_shell_command_extra_input_var_substitution():
+
+    # repeat the test with variable substitution in the command string
+    n = node.CmdNode('testvarsub', method_execute=executors.get_executor_shell_cmd('echo', True))
+    assert 'test val' in n.execute({'testvar': 'test val'}, ['testvarsub','{{testvar}}'], None)
+
+
+def test_shell_command_extra_input_var_substitution():
+
+    # repeat the test with variable substitution in the command string
+    n = node.CmdNode('testvarsub', method_execute=executors.get_executor_shell_cmd('echo {{testvar}}', True))
+    assert 'test val' in n.execute({'testvar': 'test val'}, ['testvarsub'], None)
 
 
 #

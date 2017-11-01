@@ -40,10 +40,22 @@ def test_flange_config_model_registration():
     cmdroot = FG.get('tests', 'dshnode')
 
     path = node.ResolutionPath(cmdroot)
-    node.resolve(path, ['root', 'platform'], 0)
+    node.resolve(path, ['platform'], 0)
     assert sorted(path.match_result.completions) == ['build', 'ps', 'stop', 'up']
 
-    node.resolve(path, ['root', 'platform', 'build'], 0)
+    node.resolve(path, ['platform', 'build'], 0)
     assert path.match_result.completions == []
 
+
+def test_main():
+
+    import flange
+    FG = flange.Flange(
+        data=main.DSH_FLANGE_PLUGIN,
+        root_ns='prj',
+        file_patterns=['.cmd.*'],
+        base_dir='~/workspace',
+        file_search_depth=3)
+
+    assert node.resolve_and_execute(FG.mget('sire6'), ctx=None, matched_input='platform ps', child_results=None)
 
