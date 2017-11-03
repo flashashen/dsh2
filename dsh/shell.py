@@ -42,7 +42,7 @@ class ProtoCompleter(Completer):
         counter += 1
         # print('**********************  get completions {} **********************'.format(counter))
 
-        path = self.root_proto.resolve_input(document.text_before_cursor)
+        path = self.root_proto.resolve(document.text_before_cursor)
         # resolver.resolve(path, shlex.split(document.text_before_cursor), 0)
         c = path.match_result.completions
 
@@ -137,9 +137,7 @@ def run(cmdnode):
                     get_title=None, # get_title,
                     history=history)
 
-                # node.execute(None, text, None)
-                # / node.resolve(path, shlex.split(text), 0)
-                node.resolve_and_execute(cmdnode, ctx=None, matched_input=text, child_results=None)
+                node.execute(cmdnode, text)
             except KeyboardInterrupt as e:
                 pass
     except EOFError as e:

@@ -7,7 +7,7 @@ import evaluators
 
 
 
-def node_container(name=None, method_evaluate=None, usage=None):
+def node_container(name=None, method_evaluate=None, usage=None, ctx=None):
     '''
     Create a container node that delegates responsibilities to children. It
     consumes no input and just propagates child execution results up. It's used
@@ -18,6 +18,7 @@ def node_container(name=None, method_evaluate=None, usage=None):
         # if no name, generate a random one
         name=name,
         usage=usage,
+        context=ctx,
         method_match=matchers.match_always_consume_no_input,
         method_evaluate=method_evaluate if method_evaluate else evaluators.require_all_children,
         method_execute=executors.get_executor_return_child_results())
@@ -99,26 +100,36 @@ def node_string(s):
 
 
 
-def node_root():
+def node_root(ctx=None):
 
     node = CmdNode(
         'root',
         method_match=matchers.match_always_consume_no_input,
-        method_evaluate=evaluators.choose_one_child)
-    node.execute = lambda ctx, matched_input, child_results: executors.get_executor_return_child_results()
+        method_evaluate=evaluators.choose_one_child,
+        context=ctx)
+    node.execute = lambda matched_input, child_results: executors.get_executor_return_child_results()
     return node
 
 
 
+def node_shell_command(name, command, return_output=True, ctx=None):
 
-def node_python(name, method, args_required=None, args_optional=None, options=None):
+    # repeat the test with variable substitution in the command string
+    n = CmdNode(name, context=ctx)
+    n.execute = executors.get_executor_shell_cmd(name, command, return_output, ctx=ctx)
+    return n
+
+
+
+def node_python(name, method, args_required=None, args_optional=None, options=None, ctx=None):
     # Return a node that executes a python method. By default, children are all required, which
     # is with the expectation that containers like allOf and oneOf will be used to group arguments.
     m = CmdNode(
         name,
         method_match=matchers.get_matcher_exact_string(name),
         method_evaluate=evaluators.require_all_children,
-        method_execute=executors.get_executor_python(method))
+        method_execute=executors.get_executor_python(method),
+        context=ctx)
 
 
     if options:
@@ -165,7 +176,7 @@ class CmdNode(object):
         else:
             children = []
             self.__children = children
-            self.get_children = lambda ctx: children
+            self.get_children = lambda: children
 
 
 
@@ -241,11 +252,11 @@ class CmdNode(object):
         return self
 
 
-    def resolve_input(self, matched_input):
+    def resolve(self, matched_input):
         path = ResolutionPath(self)
         if matched_input and isinstance(matched_input, six.string_types):
             matched_input = shlex.split(matched_input)
-        resolve(path, matched_input if matched_input else [], 0)
+        ResolutionPath.resolve(path, matched_input if matched_input else [])
         return path
 
 
@@ -273,7 +284,7 @@ def given_dir(path):
 
 def get_children_method_dir_listing(dir='.'):
     import glob
-    def dir_listing(ctx):
+    def dir_listing():
         with given_dir(dir):
             return [CmdNode(p) for p in glob.glob('*')]
     return dir_listing
@@ -281,21 +292,18 @@ def get_children_method_dir_listing(dir='.'):
 
 
 
-
-#  NOTE for completions, traverse tree and take every leaf's completions. Stop traversal at any node that is status_complete
-# OR.. propogate up after child resolution, extending self's completion by that of all children's
-
 class ResolutionPath:
 
     '''
-    A possible completion path that might develop into further paths
+    A tree structure that realizes an input against the node tree.
+
     '''
     def __init__(self, node):
 
         self.cmd_node = node
 
         self.status = node.initial_status
-        self.match_result = MATCH_RESULT_NONE()
+        self.match_result = MatchResult()
         self.exe_result = None
 
         # lazy initialized list of children paths which wrap cmd_node.children
@@ -303,6 +311,140 @@ class ResolutionPath:
 
         # list of children in order of resolution. From this list the input could be reconstructed
         self.resolutions = []
+
+
+    @staticmethod
+    def resolve(path, input_segments, start_index=0, input_mode=MODE_COMPLETE):
+
+        path.match_result = path.cmd_node.match(input_segments, start_index)
+        if path.match_result.status not in [MATCH_FULL]:
+            return
+
+        # Call the cmd node get_children method. Children can be dynamic based on context and
+        # external conditions. Its up to the resolver for now to be careful with this feature.
+        # something will need to be done later to optimize so that slow calls aren't made more
+        # than is necessary
+        node_children = path.cmd_node.get_children()
+        if not node_children:
+            path.status = path.cmd_node.evaluate([])
+            return
+
+
+        path.children = [ResolutionPath(child) for child in node_children]
+        start_index = path.match_result.stop
+
+        while True:
+
+            # if input_mode != MODE_COMPLETE and start_index >= len(input_segments):
+            #     # No more input so nothing to resolve except completions against empty input
+            #     break
+
+            remaining_children = [child for child in path.children if child not in path.resolutions]
+            if not remaining_children:
+                break
+
+            # depth first traversal, resolving against current position in input.
+            # print 'resolving children of ', path.cmd_node.name
+            for child in remaining_children:
+                ResolutionPath.resolve(child, input_segments, start_index, input_mode)
+                # if child.match_result.matched_input():
+                #     print child.cmd_node.name, ':', child.match_result
+
+
+                # INVARIANT - Children have all resolved as much input as possible on current input,index.
+
+            # re-evaluate status
+            path.status = path.cmd_node.evaluate([child.status for child in path.children])
+
+            # select child that resolved best. First, select based on amount of input consumed,
+            # then take the comlpeted, then take the satisfied, then take whichever is first
+            ranked = sorted(remaining_children, reverse=True, key=lambda child: child.get_match_score())
+
+
+            if ranked[0].amount_input_consumed():
+
+                # case 1: one child consumed most input, even counting fragment matches
+                #   -> winner contributes completions, etc. resolution is over and solely dependent on this winning child
+                if len(ranked) == 1 or ranked[0].amount_input_consumed() > ranked[1].amount_input_consumed():
+
+                    # As children are resolved, append to the resolved list so they won't be processed again
+                    # and also so we can re-construct the 'path' of resolution
+                    path.resolutions.append(ranked[0])
+
+                    # Stop index and completions come from winner
+                    path.match_result.stop = ranked[0].match_result.stop
+                    path.match_result.completions = ranked[0].match_result.completions[:]
+
+                    # If the winner is unsatisfied, then don't give its peers a chance to consume more input.
+                    # Otherwise change the index into the input and see if its peers can do something with the
+                    # remaining input
+                    if ranked[0].status not in (STATUS_SATISFIED, STATUS_COMPLETED):
+                        break
+                    else:
+                        start_index = ranked[0].match_result.stop
+
+                # case 2: two or more children 'consumed' input and same amount
+                #   -> full/frag matches
+                #   -> current path cannot be complete. map complete to satisfied if needed.
+                else:
+                    # By definition, this node can't be completed if there are multiple possible
+                    # resolutions or completions of the input
+                    if path.status == STATUS_COMPLETED:
+                        path.status = STATUS_SATISFIED
+
+                    # Increase the stop index and extend the current completions
+                    path.match_result.stop = ranked[0].match_result.stop
+                    for child in path.children:
+                        path.match_result.completions.extend(child.match_result.completions)
+                    break
+
+
+            else:
+                # case 3: no children consumed input
+                # -> eval is complete as is. take completions from all
+                for child in remaining_children:
+                    path.match_result.completions.extend(child.match_result.completions)
+                break
+
+
+            # if current node is completed there is nothing more to resolve, by definition
+            if path.status == STATUS_COMPLETED:
+                break
+
+
+    def execute(self):
+        """
+        Execute the resolved nodes in reversed post-order (effectively its a stack).
+
+        :return:
+        """
+
+        child_results = {child.cmd_node.name: child.execute() for child in reversed(self.resolutions)}
+
+        # If this node isn't satisfied, then don't execute. Check this after recursive call
+        # in order to do the check from the bottom up. Otherwise the root node would always
+        # be unsatisfied
+        if self.status not in [STATUS_SATISFIED, STATUS_COMPLETED]:
+            # print('input invalid. {}: {}\n{}'.format(self.cmd_node.name, self.match_result.matched_input(), self.cmd_node.usage))
+            # return
+            raise NodeUnsatisfiedError('input invalid for {}'.format(self.cmd_node.name))
+
+        # print 'execute {} on {}, {}, {}'.format(path.cmd_node, path.match_result, child_results)
+        anon_keys = [x for x in child_results.keys() if str(x).startswith(NODE_ANONYMOUS_PREFIX) and isinstance(child_results[x], dict)]
+
+
+        # For any results that are returned by a container node, take the values of it's children
+        # rather than itself. Otherwise the container's generated name shows up as a result, rather
+        # the important values of the contained nodes.
+        for k in anon_keys:
+            child_results.update(child_results[k])
+            del child_results[k]
+
+        # print('executing node {} with matched input {}'.format(self.cmd_node.name, self.match_result.matched_input()))
+        self.exe_result = self.cmd_node.execute(self.match_result, child_results)
+        return self.exe_result
+
+
 
 
     def amount_input_consumed(self):
@@ -337,160 +479,12 @@ class ResolutionPath:
 
 
 
-# ctx, matched_input, child_results:
-
-def resolve_and_execute(node, ctx=None, matched_input=None, child_results=None):
-
-    # path = ResolutionPath(node)
-    # resolve(path, shlex.split(input), 0)
-
-    try:
-        return __execute_resurse(node.resolve_input(matched_input), ctx)
-    except NodeUnsatisfiedError as ne:
-        print(str(ne))
-    except:
-        traceback.print_exc(file=sys.stdout)
 
 
-def __execute_resurse(path, ctx):
-    """
-    Execute the resolved nodes in reversed post-order (effectively its a stack).
+def execute(root, input=None):
+    return resolve(root, input).execute()
 
-    :param path:
-    :param ctx:
-    :return:
-    """
-
-    child_results = {child.cmd_node.name: __execute_resurse(child, ctx) for child in reversed(path.resolutions)}
-
-    # If this node isn't satisfied, then don't execute. Check this after recursive call
-    # in order to do the check from the bottom up. Otherwise the root node would always
-    # be unsatisfied
-    if path.status not in [STATUS_SATISFIED, STATUS_COMPLETED]:
-        raise NodeUnsatisfiedError('input invalid for {}: {}\n{}'.format(path.cmd_node.name, path.match_result.matched_input, path.cmd_node.usage))
-
-    # print 'execute {} on {}, {}, {}'.format(path.cmd_node, ctx, path.match_result, child_results)
-    anon_keys = [x for x in child_results.keys() if str(x).startswith(NODE_ANONYMOUS_PREFIX) and isinstance(child_results[x], dict)]
-
-
-    # For any results that are returned by a container node, take the values of it's children
-    # rather than itself. Otherwise the container's generated name shows up as a result, rather
-    # the important values of the contained nodes.
-    for k in anon_keys:
-        child_results.update(child_results[k])
-        del child_results[k]
-
-
-    path.exe_result = path.cmd_node.execute(ctx, path.match_result.matched_input, child_results)
-    return path.exe_result
-
-
-
-
-def resolve(path, input_segments, start_index=0, ctx={}, input_mode=MODE_COMPLETE):
-
-    path.match_result = path.cmd_node.match(input_segments, start_index)
-    if path.match_result.status not in [MATCH_FULL]:
-        return
-
-    # Call the cmd node get_children method. Children can be dynamic based on context and
-    # external conditions. Its up to the resolver for now to be careful with this feature.
-    # something will need to be done later to optimize so that slow calls aren't made more
-    # than is necessary
-    node_children = path.cmd_node.get_children(ctx)
-    if not node_children:
-        path.status = path.cmd_node.evaluate([])
-        return
-
-
-    path.children = [ResolutionPath(child) for child in node_children]
-    start_index = path.match_result.stop
-
-    while True:
-
-        # if input_mode != MODE_COMPLETE and start_index >= len(input_segments):
-        #     # No more input so nothing to resolve except completions against empty input
-        #     break
-
-        remaining_children = [child for child in path.children if child not in path.resolutions]
-        if not remaining_children:
-            break
-
-        # depth first traversal, resolving against current position in input.
-        # print 'resolving children of ', path.cmd_node.name
-        for child in remaining_children:
-            resolve(child, input_segments, start_index, ctx, input_mode)
-            # if child.match_result.matched_input:
-            #     print child.cmd_node.name, ':', child.match_result
-
-
-            # INVARIANT - Children have all resolved as much input as possible on current input,index.
-
-        # re-evaluate status
-        path.status = path.cmd_node.evaluate([child.status for child in path.children])
-
-        # select child that resolved best. First, select based on amount of input consumed,
-        # then take the comlpeted, then take the satisfied, then take whichever is first
-        ranked = sorted(remaining_children, reverse=True, key=lambda child: child.get_match_score())
-
-
-        if ranked[0].amount_input_consumed():
-
-            # case 1: one child consumed most input, even counting fragment matches
-            #   -> winner contributes completions, etc. resolution is over and solely dependent on this winning child
-            if len(ranked) == 1 or ranked[0].amount_input_consumed() > ranked[1].amount_input_consumed():
-
-                # As children are resolved, append to the resolved list so they won't be processed again
-                # and also so we can re-construct the 'path' of resolution
-                path.resolutions.append(ranked[0])
-
-                # Stop index and completions come from winner
-                path.match_result = MATCH_RESULT(
-                    path.match_result.status,
-                    path.match_result.start,
-                    ranked[0].match_result.stop,
-                    ranked[0].match_result.completions[:],
-                    input_segments[path.match_result.start:ranked[0].match_result.stop])
-
-                # If the winner is unsatisfied, then don't give its peers a chance to consume more input.
-                # Otherwise change the index into the input and see if its peers can do something with the
-                # remaining input
-                if ranked[0].status not in (STATUS_SATISFIED, STATUS_COMPLETED):
-                    break
-                else:
-                    start_index = ranked[0].match_result.stop
-
-            # case 2: two or more children 'consumed' input and same amount
-            #   -> full/frag matches
-            #   -> current path cannot be complete. map complete to satisfied if needed.
-            else:
-                # By definition, this node can't be completed if there are multiple possible
-                # resolutions or completions of the input
-                if path.status == STATUS_COMPLETED:
-                    path.status = STATUS_SATISFIED
-                # Increase the stop index and extend the current completions
-                path.match_result = MATCH_RESULT(
-                    path.match_result.status,
-                    path.match_result.start,
-                    ranked[0].match_result.stop,
-                    path.match_result.completions,
-                    input_segments[path.match_result.start:ranked[0].match_result.stop])
-
-                for child in path.children:
-                    path.match_result.completions.extend(child.match_result.completions)
-                break
-
-
-        else:
-            # case 3: no children consumed input
-            # -> eval is complete as is. take completions from all
-            for child in remaining_children:
-                path.match_result.completions.extend(child.match_result.completions)
-            break
-
-
-        # if current node is completed there is nothing more to resolve, by definition
-        if path.status == STATUS_COMPLETED:
-            break
+def resolve(root, input):
+    return root.resolve(input)
 
 

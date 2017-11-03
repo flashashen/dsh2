@@ -37,7 +37,7 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
     """
     # command can be specified by a simple string
     if isinstance(val, six.string_types):
-        return node.CmdNode(key, context=ctx, usage=usage, method_execute=executors.get_executor_shell_cmd(val))
+        return node.node_shell_command(key, val, ctx=ctx, return_output=False)
 
     # command can be a list of commands (nesting allowed)
     elif isinstance(val, list):
@@ -46,7 +46,7 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
             root.add_child(node_dsh_cmd(key+'_'+str(i+1), c))
         return root
 
-    # command can be an dict with keys {do,help,env}
+    # command can be a dict with keys {do,help,env}
     elif isinstance(val, dict):
         root = node.CmdNode(key, context=ctx)
         if 'vars' in val:
@@ -63,30 +63,35 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
 
 
 
-def node_dsh_context(data, name=None):
+def node_dsh_context(data, name=None, ctx={}):
 
     if name:
         rootCmd = node.CmdNode(name)
     else:
         rootCmd = node.node_root()
 
+
+    # the env/ctx for this context will be the parent plus any new vars defined
+    # with new vars overwriting the old
+    newctx = ctx.copy()
+    if 'vars' in data:
+        newctx.update(data['vars'])
+
+    # Set namespace though nothing is done with it yet
+    ns = data['ns'] if 'ns' in data else ''
+
+    # Process the remaining keys
     for key, val in data.iteritems():
-        ctx = {}
-        if key == 'dsh':
+        if key in ['dsh', 'vars', 'ns']:
             pass
-        elif key == 'ns':
-            print('ns', val)
-        elif key == 'vars':
-            ctx = val
-            print('vars', val)
         elif key == 'contexts':
             for k, v in val.items():
-                rootCmd.add_child(node_dsh_context(v, k))
+                rootCmd.add_child(node_dsh_context(v, k, ctx=newctx))
         elif key == 'commands':
             for k, v in val.items():
-                rootCmd.add_child(node_dsh_cmd(k, v, ctx))
+                rootCmd.add_child(node_dsh_cmd(k, v, newctx))
         else:
-            rootCmd.add_child(node_dsh_cmd(key, val, ctx))
+            rootCmd.add_child(node_dsh_cmd(key, val, newctx))
     return rootCmd
 
 
@@ -96,23 +101,17 @@ def node_dsh_context(data, name=None):
 
 def main():
 
-    print 'main called'
-
     import flange
     FG = flange.Flange(
         data=DSH_FLANGE_PLUGIN,
         root_ns='prj',
         file_patterns=['.cmd.*'],
         base_dir='~/workspace',
-        file_search_depth=3)
+        file_search_depth=2)
 
 
     root = FG.mget('sire6')
-    # root = node.node_root().one_of([
-    #     node.CmdNode('junk'),
-    #     node.CmdNode('flange').add_child(
-    #         node.node_python('get', FG.get, [node.node_argument('key')], [node.node_argument('model')]))
-    # ])
+
 
     shell.run(root)
 

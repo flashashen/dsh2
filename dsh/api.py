@@ -1,4 +1,4 @@
-from collections import namedtuple
+import six, shlex
 
 UNEVALUATED = 'UNEVALUATED'
 
@@ -27,52 +27,29 @@ class NodeUnsatisfiedError(Exception):
 
 
 
-#
-#   Match
-#
-#   INPUT_MATCH = cmd_node.match(input_segments, start_index)
-#
-MATCH_RESULT = namedtuple('MATCH_RESULT', 'status start stop completions matched_input')
+class MatchResult(object):
 
-def MATCH_RESULT_NONE(start_index=0):
-    return MATCH_RESULT(MATCH_NONE, start_index, start_index, [], None)
+    def __init__(self, status=MATCH_NONE, input=[], start=0, stop=0, completions=[]):
+        self.status = status
+        self.input = input
+        self.start = start
+        self.stop = stop
+        self.completions = completions[:]
 
+    def matched_input(self):
+        return self.input[self.start:self.stop+1]
 
-#
-#   Evaluate
-#
+    def input_remainder(self):
+        return self.input[self.stop+1:]
 
-RESOLUTION = namedtuple('RESOLUTION', 'resolution_status, match_result, completions')
-
-
-#
-#       ordered_list_of_resolved_children = resolve(node, input, index)
-#
-#       if tail is unsatisfied, then only tail can produce completions
-#
-#
-
-
-
-
-# RESOLUTION_NO_MATCH = RESOLUTION(STATUS_UNSATISFIED, MATCH_RESULT(MATCH_NONE, None), [])
-
-
-#
-#   (match_status, sat_status, start, stop, completions) resolve(input, start, mode)
-#
-#       case 1: simple choose one from list of words. no children involved. no eval needed.
-#       case 2: two children which are case 1.
-#           - sat_status delegates to children with a delegation function
-#
-#   match(input, start)
-#   eval(child_statues)
-#   complete(input, start)
-#
-#
-#
-
-
-
-# cmd.completions(input)
-# cmd.executions(input)
+    @staticmethod
+    def from_input(input, start=None, stop=None):
+        if input and isinstance(input, six.string_types):
+            input = shlex.split(input)
+        else:
+            input = []
+        return MatchResult(
+            MATCH_FULL,
+            input,
+            start if start else 0,
+            stop if stop else len(input)-1)

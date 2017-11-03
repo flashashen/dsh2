@@ -35,16 +35,23 @@ def test_dsh_schema():
     assert dshnode.get
 
 
-def test_flange_config_model_registration():
+def test_config_model_registration():
     # The initial data contains the test plugin registation
     cmdroot = FG.get('tests', 'dshnode')
 
-    path = node.ResolutionPath(cmdroot)
-    node.resolve(path, ['platform'], 0)
+    path = cmdroot.resolve('platform')
     assert sorted(path.match_result.completions) == ['build', 'ps', 'stop', 'up']
 
-    node.resolve(path, ['platform', 'build'], 0)
+    path = cmdroot.resolve('platform build')
     assert path.match_result.completions == []
+
+
+def test_context_vars():
+
+    cmdroot = FG.get('tests', 'dshnode')
+    prod = [x for x in cmdroot.get_children() if x.name == 'prod'][0]
+
+
 
 
 def test_main():
@@ -57,5 +64,7 @@ def test_main():
         base_dir='~/workspace',
         file_search_depth=3)
 
-    assert node.resolve_and_execute(FG.mget('sire6'), ctx=None, matched_input='platform ps', child_results=None)
+    root = FG.mget('sire6')
+    assert root
+    assert root.resolve('platform ps').execute()
 

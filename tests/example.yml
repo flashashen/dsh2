@@ -53,6 +53,7 @@ vars:
 
   # Dump any object into a var
   pcmds: &pcmds
+      echohost: echo {{host}}
       up: invcommand platform build  cfg edit docker stack deploy -c platform/docker-compose.yml *platform_stack_name
       stop: docker stack remove *platform_stack_name
       build: docker-compose -f platform/docker-compose.yml build

@@ -1,39 +1,34 @@
 from context import *
 
-import six
-
 
 def test_node_container():
 
     root = node.node_container('root')
-    path = node.ResolutionPath(root)
 
-    node.resolve(path, [], 0)
+    path = root.resolve([])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == []
 
     root.add_child('cmd_one').add_child('cmd_two')
-    path = node.ResolutionPath(root)
-
-    node.resolve(path, [''], 0)
+    path = root.resolve([''])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one', 'cmd_two']
 
-    node.resolve(path, ['cmd_one', 'cmd_two'], 0)
+    path = root.resolve(['cmd_one', 'cmd_two'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.completions == []
 
-    node.resolve(path, ['cmd_'], 0)
+    path = root.resolve(['cmd_'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one', 'cmd_two']
 
-    node.resolve(path, ['cmd_two'], 0)
+    path = root.resolve(['cmd_two'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one']
 
     root.evaluate = evaluators.choose_one_child
-    node.resolve(path, ['cmd_two'], 0)
+    path = root.resolve(['cmd_two'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.completions == []
 
@@ -43,13 +38,12 @@ def test_node_container():
 def test_all_of():
 
     root = node.node_root().all_of(['cmd_one', 'cmd_two'])
-    path = node.ResolutionPath(root)
 
-    node.resolve(path, ['cmd_one', 'cmd_two'], 0)
+    path = root.resolve(['cmd_one', 'cmd_two'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.completions == []
 
-    node.resolve(path, ['cmd_two'], 0)
+    path = root.resolve(['cmd_two'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one']
 
@@ -57,13 +51,11 @@ def test_all_of():
 def test_one_of():
 
     root = node.node_root().one_of(['cmd_one', 'cmd_two'])
-    path = node.ResolutionPath(root)
-
-    node.resolve(path, ['cmd'], 0)
+    path = root.resolve(['cmd'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one', 'cmd_two']
 
-    node.resolve(path, ['cmd_two'], 0)
+    path = root.resolve(['cmd_two'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.completions == []
 
@@ -73,22 +65,21 @@ def test_one_of():
 def test_nested_containers():
 
     root = node.node_container()
-    path = node.ResolutionPath(root)
     root.all_of(['cmd_one', node.CmdNode('cmd_two').one_of(['opt1', 'opt2'])])
 
-    node.resolve(path, ['cmd_one', 'cmd_two', 'opt1'])
+    path = root.resolve(['cmd_one', 'cmd_two', 'opt1'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.completions == []
 
-    node.resolve(path, ['cmd_one', 'cmd_two', 'op'])
+    path = root.resolve(['cmd_one', 'cmd_two', 'op'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['opt1', 'opt2']
 
-    node.resolve(path, ['cmd_two', 'op'])
+    path = root.resolve(['cmd_two', 'op'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['opt1', 'opt2']
 
-    node.resolve(path, ['cmd_two', 'opt1'])
+    path = root.resolve(['cmd_two', 'opt1'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one']
 
@@ -97,23 +88,22 @@ def test_nested_containers():
 def test_peer_containers():
 
     root = node.node_container()
-    path = node.ResolutionPath(root)
     root.all_of(['cmd_one', 'cmd_two'])
     root.one_of(['cmd_three', 'cmd_four'])
 
-    node.resolve(path, [''], 0)
+    path = root.resolve([''])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one', 'cmd_two', 'cmd_three', 'cmd_four']
 
-    node.resolve(path, ['cmd_one', 'cmd_two', 'cmd_four'], 0)
+    path = root.resolve(['cmd_one', 'cmd_two', 'cmd_four'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.completions == []
 
-    node.resolve(path, ['cmd_one', 'cmd_two'], 0)
+    path = root.resolve(['cmd_one', 'cmd_two'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_three', 'cmd_four']
 
-    node.resolve(path, ['cmd_three'], 0)
+    path = root.resolve(['cmd_three'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['cmd_one', 'cmd_two']
 
@@ -122,33 +112,29 @@ def test_peer_containers():
 
 
 def test_node_argument():
-    assert node.resolve_and_execute(
-        node=node.node_argument('arg'),
-        ctx=None,
-        matched_input='arg somefreevalue') == 'somefreevalue'
+    assert node.execute(node.node_argument('arg'), 'arg somefreevalue') == 'somefreevalue'
 
 
 
 def test_node_options():
 
     root = node.CmdNode('root', method_evaluate=evaluators.require_all_children).options(['opt1', 'opt2']).add_child('cmd')
-    path = node.ResolutionPath(root)
 
-    node.resolve(path, ['root'], 0)
+    path = root.resolve(['root'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['opt1', 'opt2', 'cmd']
 
-    node.resolve(path, ['root', 'cmd'], 0)
+    path = root.resolve(['root', 'cmd'])
     assert path.status == api.STATUS_SATISFIED
     assert path.match_result.completions == ['opt1', 'opt2']
 
-    node.resolve(path, ['root', 'opt1'], 0)
+    path = root.resolve(['root', 'opt1'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['opt2', 'cmd']
 
     # After the first option is supplied and then followed by a non-option
     # the second option should be presented as a completion
-    node.resolve(path, ['root', 'cmd', 'opt1'], 0)
+    path = root.resolve(['root', 'cmd', 'opt1'])
     assert path.status == api.STATUS_SATISFIED
     assert path.match_result.completions == ['opt2']
 
@@ -164,23 +150,22 @@ def test_node_python():
     required = [node.node_argument('arg1'), node.node_argument('arg2')]
     optional = [node.node_argument('optional_arg')]
     options = ['-a', '-b']
-    do = node.node_python(
+    root = node.node_python(
         'do',
         test_method,
         required,
         optional,
         options)
-    path = node.ResolutionPath(do)
 
-    node.resolve(path, ['do'], 0)
+    path = root.resolve(['do'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == ['-a', '-b', 'arg1', 'arg2']
 
-    node.resolve(path, ['do', 'arg1'], 0)
+    path = root.resolve(['do', 'arg1'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == []
 
-    # node.resolve(path, ['do', 'arg1', 'val1'], 0)
+    # path = root.resolve(['do', 'arg1', 'val1'])
     # assert path.status == api.STATUS_UNSATISFIED
     # assert path.match_result.completions == ['arg2', '-a', '-b']
 
@@ -192,7 +177,7 @@ def test_resolve_sequence_hosts_duplicated():
 
     # root = one_of('root', 'choice1', 'choice2')
     # path = ResolutionPath(root)
-    # node.resolve(path, ['root','invalid'], 0)
+    # path = root.resolve(['root','invalid'])
     #
     # assert path.status == api.STATUS_UNSATISFIED
     # assert path.match_result.completions == []
@@ -210,8 +195,7 @@ def test_resolve_sequence_hosts_duplicated():
         node.CmdNode('list').all_of(['groups', 'hosts', 'playbooks'])
     ])
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','list', 'groups', 'playbooks'], 0)
+    path = root.resolve(['ans','list', 'groups', 'playbooks'])
     assert path.match_result.completions == ['hosts']
 
 
@@ -220,8 +204,7 @@ def test_resolve_sequence_hosts_duplicated():
 def test_root_doesnt_resolve_if_children_cant_resolve():
 
     root = node.CmdNode('root').one_of(['choice1', 'choice2'])
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['root','invalid'], 0)
+    path = root.resolve(['root','invalid'])
 
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.completions == []
@@ -231,8 +214,7 @@ def test_root_doesnt_resolve_if_children_cant_resolve():
 def test_full_and_fragment_siblings_same_prefix():
 
     root = node.CmdNode('root').one_of(['prefix', 'prefix_and_suffix'])
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['root','prefix'], 0)
+    path = root.resolve(['root','prefix'])
 
     # The root is satisfied since child 'prefix' is completed by the input
     assert path.status == api.STATUS_SATISFIED
@@ -245,7 +227,7 @@ def test_resolve_sequence_all_one_one():
 
     # root = one_of('root', 'choice1', 'choice2')
     # path = ResolutionPath(root)
-    # node.resolve(path, ['root','invalid'], 0)
+    # path = root.resolve(['root','invalid'])
     #
     # assert path.status == api.STATUS_UNSATISFIED
     # assert path.match_result.completions == []
@@ -254,44 +236,44 @@ def test_resolve_sequence_all_one_one():
                   [node.CmdNode('play').one_of(['website.yml', 'appserver.yml']),
                    node.CmdNode('list').one_of(['groups', 'hosts', 'playbooks'])])
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','pl'], 0)
+
+    path = root.resolve(['ans','pl'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == ['play']
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','play'], 0)
+
+    path = root.resolve(['ans','play'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == ['website.yml','appserver.yml']
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','play', 'website.yml'], 0)
+
+    path = root.resolve(['ans','play', 'website.yml'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == ['list']
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','play', 'website.yml', 'li'], 0)
+
+    path = root.resolve(['ans','play', 'website.yml', 'li'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == ['list']
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','play', 'website.yml', 'list'], 0)
+
+    path = root.resolve(['ans','play', 'website.yml', 'list'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == ['groups','hosts','playbooks']
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','play', 'website.yml', 'list', 'g'], 0)
+
+    path = root.resolve(['ans','play', 'website.yml', 'list', 'g'])
     assert path.status == api.STATUS_UNSATISFIED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == ['groups']
 
-    path = node.ResolutionPath(root)
-    node.resolve(path, ['ans','play', 'website.yml', 'list', 'groups'], 0)
+
+    path = root.resolve(['ans','play', 'website.yml', 'list', 'groups'])
     assert path.status == api.STATUS_COMPLETED
     assert path.match_result.status == api.MATCH_FULL
     assert path.match_result.completions == []
@@ -465,13 +447,12 @@ def test__children_as_options():
 
 def test_children_as_dir_listing():
 
-    n = node.CmdNode('filecmd', child_get_func=node.get_children_method_dir_listing('dsh'))
-    path = node.ResolutionPath(n)
+    root = node.CmdNode('filecmd', child_get_func=node.get_children_method_dir_listing('dsh'))
 
-    node.resolve(path, ['filecmd', 'schema.yml'], 0)
+    path = root.resolve(['filecmd', 'schema.yml'])
     assert path.status == api.STATUS_COMPLETED
 
-    node.resolve(path, ['filecmd', 'schema'], 0)
+    path = root.resolve(['filecmd', 'schema'])
     assert path.status == api.STATUS_UNSATISFIED
     assert 'schema.yml' in path.match_result.completions
 
@@ -479,130 +460,23 @@ def test_children_as_dir_listing():
 
 def test_shell_command():
 
-    n = node.CmdNode('testls', method_execute=executors.get_executor_shell_cmd('ls', True))
-    assert os.path.pardir in n.execute(None, ['ls', '-a'], None)
+    n = node.node_shell_command('testls', 'ls', True)
+    assert os.path.pardir in n.execute(api.MatchResult.from_input('-a'), None)
+
+
+
+def test_shell_command_var_substitution():
+
+    # repeat the test with variable substitution in the command string
+    n = node.node_shell_command('testvarsub', 'echo {{testvar}}', True, ctx={'testvar': 'test val'})
+    assert 'test val' in n.execute(api.MatchResult.from_input('testvarsub'), None)
 
 
 
 def test_shell_command_extra_input_var_substitution():
 
     # repeat the test with variable substitution in the command string
-    n = node.CmdNode('testvarsub', method_execute=executors.get_executor_shell_cmd('echo', True))
-    assert 'test val' in n.execute({'testvar': 'test val'}, ['testvarsub','{{testvar}}'], None)
+    n = node.node_shell_command('testvarsub', 'echo', True, ctx={'testvar': 'test val'})
+    assert 'test val' in n.execute(api.MatchResult.from_input('testvarsub {{testvar}}'), None)
 
 
-def test_shell_command_extra_input_var_substitution():
-
-    # repeat the test with variable substitution in the command string
-    n = node.CmdNode('testvarsub', method_execute=executors.get_executor_shell_cmd('echo {{testvar}}', True))
-    assert 'test val' in n.execute({'testvar': 'test val'}, ['testvarsub'], None)
-
-
-#
-# def get_root():
-#     p1 = node.CmdNode('ans', eval_func=choose_one_child)
-#     p1.add_child(node.CmdNode('list'))
-#     p1.add_child(node.CmdNode('play'))
-#     # p1.add_child(play())
-#     # p1.add_child(list())
-#
-#     # p1.add_child(node.CmdNode('list'))
-#     # p1.children[0].add_child(node.CmdNode('app1_1', True))
-#     # p1.children[0].add_child(node.CmdNode('app1_2', True))
-#     # p1.children[0].add_tag('testtag')
-#     # p1.add_rule_one_of('testtag')
-#     return p1
-
-
-
-#
-# def node.node_play():
-#     p = node.CmdNode('play', )
-#     for book in playbooks:
-#         p.add_child(node.CmdNode(book))
-#     return p
-#
-#
-# def node.node_list():
-#     p = node.CmdNode('list')
-#     p.add_child(node.CmdNode('groups'))
-#     p.add_child(node.CmdNode('hosts'))
-#     p.add_child(node.CmdNode('playbooks'))
-#     return p
-
-#
-# def test_node.resolve():
-#     print get_root().children
-#     res = get_root().complete('ans')
-#     print res
-
-
-
-
-
-from executors import get_executor_shell_cmd
-#
-#
-# def create_cmd_node(key, val, ctx):
-#     """
-#     handles "#/definitions/type_command"
-#
-#     :param key:
-#     :param val:
-#     :param ctx:
-#     :return:
-#     """
-#     # command can be specified by a simple string
-#     if isinstance(val, six.string_types):
-#         return node.CmdNode(key, context=ctx, method_execute=get_executor_shell_cmd(val))
-#
-#     # command can be a list of commands (nesting allowed)
-#     elif isinstance(val, list):
-#         root = node.CmdNode(key, context=ctx)
-#         for i,c in enumerate(val):
-#             root.add_child(create_cmd_node(key+'_'+str(i+1)),val)
-#         return root
-#
-#     # command can be an dict with keys {do,help,env}
-#     elif isinstance(val, dict):
-#         root = node.CmdNode(key, context=ctx)
-#         root.add_child(create_cmd_node(key+'_do',val, ctx=val['vars']))
-#         # for do in val['do']:
-#         #     if isinstance(val, six.string_types):
-#         #         return node.CmdNode(key, context=ctx, method_execute=get_executor_shell_cmd(val))
-#         #     elif isinstance(do, list):
-#         #         root.add_child(create_cmd_node('do',val))
-#         #     else:
-#         #         raise ValueError("value of 'do' in command configuration must be a string of a list. type is {}".format(type(do)))
-#         return root
-#
-#     else:
-#         raise ValueError("value of command {} must be a string, list, or dict. type is {}".format(key, type(val)))
-#
-#
-#
-# def get_node(data):
-#     rootCmd = node.CmdNode('root')
-#     for key,val in data.iteritems():
-#         ctx = {}
-#         if key == 'dsh':
-#             pass
-#         elif key == 'ns':
-#             print 'ns', val
-#         elif key == 'vars':
-#             ctx = val
-#             print 'vars', val
-#         elif key == 'context':
-#             print 'contexts', val
-#         else:
-#             rootCmd.add_child(create_cmd_node(key,val, ctx))
-#     return rootCmd
-#
-#
-#
-# DSH_FLANGE_PLUGIN = {'dshnode': {
-#         'type': 'FLANGE.TYPE.PLUGIN',
-#         'schema': 'python://{}.dsh_schema'.format(MODULE_NAME),
-#         'factory': 'python://{}.get_node'.format(MODULE_NAME)
-#     }
-# }
