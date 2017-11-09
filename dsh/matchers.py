@@ -18,6 +18,16 @@ def match_always_consume_no_input(input_segments, start_index=None):
 match_any_word = lambda input, index=None: match_string(None, input, index)
 
 
+
+def __swallow_completions(matcher, input, index):
+    result = matcher(input, index)
+    return MatchResult(result.status, result.input, result.start, result.stop, [])
+
+def wrap_matcher_swallow_completions(matcher):
+    return lambda input, index: __swallow_completions(matcher, input, index)
+
+
+
 def get_matcher_exact_string(str):
     return lambda input, index=None: match_string(str, input, index)
 

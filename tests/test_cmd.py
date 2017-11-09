@@ -279,6 +279,7 @@ def test_resolve_sequence_all_one_one():
     assert path.match_result.completions == []
 
 
+
 #
 #    Test match functions
 #

@@ -1,4 +1,4 @@
-import subprocess, sys, traceback, six
+import subprocess, sys, traceback, six, os
 
 #
 #   Executor(context) methods.
@@ -51,7 +51,7 @@ def get_executor_return_matched_input():
 
 
 
-def get_executor_shell_cmd(name, command, return_output=False, ctx=None):
+def get_executor_shell_cmd(name, command, return_output=True, ctx=None):
     """
    Return an executor(context) method that executes a shell command
    :param command:  command to be given to default system shell
@@ -60,7 +60,9 @@ def get_executor_shell_cmd(name, command, return_output=False, ctx=None):
 
     return lambda match_result, child_results: execute_shell_cmd(
         command,
-        match_result.matched_input()[1:] if name == match_result.matched_input()[0] else match_result.matched_input()[:],
+        match_result.matched_input()[1:]
+            if match_result.matched_input() and name == match_result.matched_input()[0]
+            else match_result.matched_input()[:],
         match_result.input_remainder(),
         child_results,
         ctx,
@@ -69,10 +71,11 @@ def get_executor_shell_cmd(name, command, return_output=False, ctx=None):
 
 
 
-def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_output=False):
+def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_output=True):
 
 
-    # print('execute_shell_cmd: args from matched input: {}'.format(node_args+free_args))
+    # print('execute_shell_cmd:  {}'.format(command))
+    # print('execute_shell_cmd:  {}\n\tnode_args: {}\n\tfree_args: {}\n\tenv: {} '.format(command, node_args, free_args, env))
 
     # the command is the given, static command string plus any extra input
     args = node_args[:] + free_args[:]
@@ -95,19 +98,22 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
                 if env and m.group(1) in env:
                     cmd_string = cmd_string.replace(m.group(), env[m.group(1)])
 
+    cmdenv = os.environ.copy()
+    if env:
+        cmdenv.update(env)
 
     # return the output
     if return_output:
         import StringIO
         output = StringIO.StringIO()
-        if execute_with_running_output(cmd_string, env, output) == 0:
+        if execute_with_running_output(cmd_string, cmdenv, output) == 0:
             return output.getvalue().split('\n')
         else:
             raise ValueError(output.getvalue())
 
     # return the exit code
     else:
-        return execute_with_running_output(cmd_string, env)
+        return execute_with_running_output(cmd_string, cmdenv)
 
 
 
@@ -120,7 +126,7 @@ def execute_with_running_output(command, env=None, out=None):
     else:
         cmdenv =  {}
 
-    print('running command: {} with env: {}'.format(command, cmdenv))
+    print('running command: {}'.format(command))
 
     # with given_dir(ctx['cmd_dir']):
     if not out:

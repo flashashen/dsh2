@@ -91,7 +91,14 @@ contexts:
 
 
   platform:
+    vars:
+      testvar: platfrom testval
     up: docker stack deploy -c platform/docker-compose.yml *platform_stack_name
     stop: docker stack remove *platform_stack_name
-    build: docker-compose -f platform/docker-compose.yml build
     ps: docker stack ps *platform_stack_name
+    build:
+      help: some help text
+      do:
+        - echo build task1
+        - echo build task2
+

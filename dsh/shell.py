@@ -62,31 +62,7 @@ class ProtoCompleter(Completer):
                     display_meta=None,
                     get_display_meta=None)
 
-#
-#
-# def node_interactive_shell():
-#     return node.CmdNode(
-#         'dsh',
-#         method_match=matchers.match_always_consume_no_input,
-#         method_evaluate=evaluators.choose_one_child,
-#         method_execute=executors.get_executor_return_child_result_value())
-#
-#
-#
-# def execute_context(node, ctx, matched_input, child_results):
-#
-#     # If there are children that returned a result, then just pass those on.
-#     # In this case the given node is acting as a container
-#     if child_results:
-#         return child_results
-#     # If child node results are available, then this node is assumed to be
-#     # at the end of the input and will act as a interactive subcontext/shell
-#     else:
-#         return run(node)
-#
-#
-# def get_executor_shell(node):
-#     return lambda ctx, matched_input, child_results: execute_context(node, ctx, child_results)
+
 
 
 def run(cmdnode):
@@ -127,7 +103,7 @@ def run(cmdnode):
     try:
         while True:
             try:
-                text = prompt('> ',
+                text = prompt(cmdnode.name + '> ',
                 # lexer=lexer,
                     completer=completer,
                     get_bottom_toolbar_tokens=get_bottom_toolbar_tokens,
@@ -140,6 +116,10 @@ def run(cmdnode):
                 node.execute(cmdnode, text)
             except KeyboardInterrupt as e:
                 pass
+            except EOFError as e:
+                raise
+            except Exception as e:
+                print str(e)
     except EOFError as e:
         pass
 

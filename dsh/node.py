@@ -100,15 +100,15 @@ def node_string(s):
 
 
 
-def node_root(ctx=None):
+def node_root(name='root', ctx=None):
 
-    node = CmdNode(
-        'root',
+    n = CmdNode(
+        name,
         method_match=matchers.match_always_consume_no_input,
         method_evaluate=evaluators.choose_one_child,
         context=ctx)
-    node.execute = lambda matched_input, child_results: executors.get_executor_return_child_results()
-    return node
+    n.execute = lambda matched_input, child_results: executors.get_executor_return_child_results()
+    return n
 
 
 
@@ -357,7 +357,7 @@ class ResolutionPath:
             path.status = path.cmd_node.evaluate([child.status for child in path.children])
 
             # select child that resolved best. First, select based on amount of input consumed,
-            # then take the comlpeted, then take the satisfied, then take whichever is first
+            # then take the completed, then take the satisfied, then take whichever is first
             ranked = sorted(remaining_children, reverse=True, key=lambda child: child.get_match_score())
 
 
@@ -404,6 +404,15 @@ class ResolutionPath:
                 # -> eval is complete as is. take completions from all
                 for child in remaining_children:
                     path.match_result.completions.extend(child.match_result.completions)
+                # In the case of an ordered list of children that resolve without input, the execution
+                # order should match the order in which they're defined. Since the execution order is last
+                # to first, these ordered children need to be reversed so that they will be executed in
+                # their original order. This inconsistency is due to execution being designed for
+                # command line input where last to first execution makes sense, but when a static list is
+                # provided, last to first execution is not what is intended
+                for child in reversed(remaining_children):
+                    if path.status == STATUS_COMPLETED or path.status == STATUS_SATISFIED:
+                        path.resolutions.append(child)
                 break
 
 
@@ -423,11 +432,11 @@ class ResolutionPath:
 
         # If this node isn't satisfied, then don't execute. Check this after recursive call
         # in order to do the check from the bottom up. Otherwise the root node would always
-        # be unsatisfied
-        if self.status not in [STATUS_SATISFIED, STATUS_COMPLETED]:
-            # print('input invalid. {}: {}\n{}'.format(self.cmd_node.name, self.match_result.matched_input(), self.cmd_node.usage))
-            # return
-            raise NodeUnsatisfiedError('input invalid for {}'.format(self.cmd_node.name))
+        # be unsatisfied   - comment out to give the cmd the chance to report it's own error and allow unsatisfied to execute as with context nodes
+        # if self.status not in [STATUS_SATISFIED, STATUS_COMPLETED]:
+        #     # print('input invalid. {}: {}\n{}'.format(self.cmd_node.name, self.match_result.matched_input(), self.cmd_node.usage))
+        #     # return
+        #     raise NodeUnsatisfiedError('input invalid for {}'.format(self.cmd_node.name))
 
         # print 'execute {} on {}, {}, {}'.format(path.cmd_node, path.match_result, child_results)
         anon_keys = [x for x in child_results.keys() if str(x).startswith(NODE_ANONYMOUS_PREFIX) and isinstance(child_results[x], dict)]
