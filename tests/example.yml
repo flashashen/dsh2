@@ -16,13 +16,13 @@ ns: root.subcmd
 #   Commands
 #
 
-cmd_string: "!echo 'deafult is a shell command'"
+cmd_string: "echo 'deafult is a shell command'"
 
 cmd_do_list:
   help: description or help text
   do:
    # a do item with periods indicates a dsh command ev
-    - '!ls -l arg1 arg2'
+    - 'ls -l arg1 arg2'
     - 'ans rcmd ls -l'
     - "{{flange.dotdict_dynamic_property_lookup}}"
 
@@ -32,17 +32,17 @@ cmd_do_nested:
   vars:
     var1: parent val1
   do:
-    - "! echo this cmd is defined in parent. {{var1}} should equal 'parent val1'"
+    - "echo this cmd is defined in parent. {{var1}} should equal 'parent val1'"
     - help: demo nested cmd object INNER
       vars:
         # overrides the value of var1 set in parent do
         var1: child val1
-      do: "! echo this cmd is defined in child. {{var1}} should equual 'child val1'"
+      do: "echo this cmd is defined in child. {{var1}} should equual 'child val1'"
 
 
 commands:
-  cmd1: '!echo this is another way to specify commands in a context'
-  cmd2: "!the 'commands' element can receive the contents of a variable. see below"
+  cmd1: 'echo this is another way to specify commands in a context'
+  cmd2: "the 'commands' element can receive the contents of a variable. see below"
 
 
 

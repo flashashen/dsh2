@@ -1,4 +1,5 @@
 import subprocess, sys, traceback, six, os
+import api
 
 #
 #   Executor(context) methods.
@@ -113,12 +114,12 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
 
     # return the exit code
     else:
-        return execute_with_running_output(cmd_string, cmdenv)
+        return execute_with_running_output(cmd_string, cmdenv, line_prefix='\t')
 
 
 
 
-def execute_with_running_output(command, env=None, out=None):
+def execute_with_running_output(command, env=None, out=None, line_prefix=''):
 
     # filter non string env vars
     if env:
@@ -126,11 +127,13 @@ def execute_with_running_output(command, env=None, out=None):
     else:
         cmdenv =  {}
 
-    print('running command: {}'.format(command))
 
     # with given_dir(ctx['cmd_dir']):
     if not out:
         out = sys.stdout
+
+    out.write('running command: {}\n'.format(command))
+    out.flush()
 
     exitCode = 0
     try:
@@ -147,21 +150,36 @@ def execute_with_running_output(command, env=None, out=None):
             if not nextline and process.poll() is not None:
                 break
             # print(nextline)
+            if line_prefix:
+                out.write(line_prefix)
             out.write(str(nextline))
             out.flush()
+
+        out.write('\n')
+        out.flush()
 
         output = process.communicate()[0]
         exitCode = process.returncode
 
         if (exitCode == 0):
-            out.write(output)
-        # else:
-        #     raise Exception(command, exitCode, output)
+            pass
+            # if line_prefix:
+            #     out.write(line_prefix)
+            # out.write(output)
+            # out.flush()
+        else:
+            # if line_prefix:
+            #     out.write(line_prefix)
+            # out.write(output)
+            # out.flush()
+            raise api.NodeExecutionFailed('command failed with status {}: {}'.format(exitCode, command))
 
     except subprocess.CalledProcessError as e:
         out.write(e.output)
-    except Exception as ae:
-        traceback.print_exc(file=out)
+        out.flush()
+        raise api.NodeExecutionFailed(e)
+    # except Exception as ae:
+    #     traceback.print_exc(file=out)
 
     return exitCode
 

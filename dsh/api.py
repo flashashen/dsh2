@@ -25,6 +25,9 @@ NODE_ANONYMOUS_PREFIX = '_ANON_'
 class NodeUnsatisfiedError(Exception):
     pass
 
+class NodeExecutionFailed(Exception):
+    pass
+
 
 
 class MatchResult(object):
