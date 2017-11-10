@@ -34,7 +34,11 @@ setup(
     install_requires=[
         'flange',
         'PyYAML',
-        'prompt_toolkit'
+        'prompt_toolkit',
+        'anyconfig',
+        'jsonschema',
+        'six',
+
     ],
     entry_points='''
         [console_scripts]

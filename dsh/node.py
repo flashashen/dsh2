@@ -1,5 +1,5 @@
 import random, string, six, os, traceback, sys, shlex, os, contextlib
-from api import *
+import api
 import matchers
 import executors
 import evaluators
@@ -79,7 +79,7 @@ def get_nodes_from_choices(nodes):
 def node_option(name):
     return CmdNode(
         name,
-        initial_status=STATUS_SATISFIED,
+        initial_status=api.STATUS_SATISFIED,
         method_match=matchers.get_matcher_exact_string(name),
         method_evaluate=evaluators.no_children,
         method_execute=executors.get_executor_return_matched_input)
@@ -161,9 +161,9 @@ class CmdNode(object):
                  method_evaluate=None,
                  child_get_func=None,
                  context=None,
-                 initial_status=STATUS_UNSATISFIED):
+                 initial_status=api.STATUS_UNSATISFIED):
 
-        self.name = name if name else NODE_ANONYMOUS_PREFIX + ''.join([random.choice(string.ascii_letters+string.digits) for n in range(8)])
+        self.name = name if name else api.NODE_ANONYMOUS_PREFIX + ''.join([random.choice(string.ascii_letters+string.digits) for n in range(8)])
         self.context = context if context else {}
         self.usage = usage
         self.execute = method_execute if method_execute else executors.get_executor_noop()
@@ -246,7 +246,7 @@ class CmdNode(object):
     def options(self, options):
 
         for opt in options:
-            if not isinstance(opt, basestring):
+            if not isinstance(opt, six.string_types):
                 raise ValueError('options must be strings. got {}'.format(type(opt)))
             self.add_child(node_option(opt))
         return self
@@ -303,7 +303,7 @@ class ResolutionPath:
         self.cmd_node = node
 
         self.status = node.initial_status
-        self.match_result = MatchResult()
+        self.match_result = api.MatchResult()
         self.exe_result = None
 
         # lazy initialized list of children paths which wrap cmd_node.children
@@ -314,10 +314,10 @@ class ResolutionPath:
 
 
     @staticmethod
-    def resolve(path, input_segments, start_index=0, input_mode=MODE_COMPLETE):
+    def resolve(path, input_segments, start_index=0, input_mode=api.MODE_COMPLETE):
 
         path.match_result = path.cmd_node.match(input_segments, start_index)
-        if path.match_result.status not in [MATCH_FULL]:
+        if path.match_result.status not in [api.MATCH_FULL]:
             return
 
         # Call the cmd node get_children method. Children can be dynamic based on context and
@@ -378,7 +378,7 @@ class ResolutionPath:
                     # If the winner is unsatisfied, then don't give its peers a chance to consume more input.
                     # Otherwise change the index into the input and see if its peers can do something with the
                     # remaining input
-                    if ranked[0].status not in (STATUS_SATISFIED, STATUS_COMPLETED):
+                    if ranked[0].status not in (api.STATUS_SATISFIED, api.STATUS_COMPLETED):
                         break
                     else:
                         start_index = ranked[0].match_result.stop
@@ -389,8 +389,8 @@ class ResolutionPath:
                 else:
                     # By definition, this node can't be completed if there are multiple possible
                     # resolutions or completions of the input
-                    if path.status == STATUS_COMPLETED:
-                        path.status = STATUS_SATISFIED
+                    if path.status == api.STATUS_COMPLETED:
+                        path.status = api.STATUS_SATISFIED
 
                     # Increase the stop index and extend the current completions
                     path.match_result.stop = ranked[0].match_result.stop
@@ -411,13 +411,13 @@ class ResolutionPath:
                 # command line input where last to first execution makes sense, but when a static list is
                 # provided, last to first execution is not what is intended
                 for child in reversed(remaining_children):
-                    if path.status == STATUS_COMPLETED or path.status == STATUS_SATISFIED:
+                    if path.status == api.STATUS_COMPLETED or path.status == api.STATUS_SATISFIED:
                         path.resolutions.append(child)
                 break
 
 
             # if current node is completed there is nothing more to resolve, by definition
-            if path.status == STATUS_COMPLETED:
+            if path.status == api.STATUS_COMPLETED:
                 break
 
 
@@ -439,7 +439,7 @@ class ResolutionPath:
         #     raise NodeUnsatisfiedError('input invalid for {}'.format(self.cmd_node.name))
 
         # print 'execute {} on {}, {}, {}'.format(path.cmd_node, path.match_result, child_results)
-        anon_keys = [x for x in child_results.keys() if str(x).startswith(NODE_ANONYMOUS_PREFIX) and isinstance(child_results[x], dict)]
+        anon_keys = [x for x in child_results.keys() if str(x).startswith(api.NODE_ANONYMOUS_PREFIX) and isinstance(child_results[x], dict)]
 
 
         # For any results that are returned by a container node, take the values of it's children
@@ -462,9 +462,9 @@ class ResolutionPath:
 
     def get_match_score(self):
         score = self.amount_input_consumed()*10
-        if self.status == STATUS_COMPLETED:
+        if self.status == api.STATUS_COMPLETED:
             score += 2
-        elif self.status == STATUS_SATISFIED:
+        elif self.status == api.STATUS_SATISFIED:
             score += 1
         return score
 

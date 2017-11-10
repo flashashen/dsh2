@@ -58,7 +58,7 @@ def test_nested_do():
     cmdroot = FG.get('tests', 'dshnode')
     path = cmdroot.resolve('cmd_do_nested')
     path.execute()
-    print cmdroot
+    print(cmdroot)
 
 
 # def test_context_cmd_do_after_simple():

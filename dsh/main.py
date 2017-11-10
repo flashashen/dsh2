@@ -1,10 +1,6 @@
 
-import os, yaml, six
-import flange
-import shell
-import node
-import evaluators
-import matchers
+import os, yaml, six, copy
+from dsh import shell, node, evaluators, matchers
 
 
 
@@ -81,36 +77,42 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
 
 
 
+def __make_child_context(parent, data):
+    newctx = copy.deepcopy(parent.context)
+    if 'vars' in data:
+        newctx.update(data['vars'])
+    return newctx
+
+
 def node_dsh_context(data, name=None, ctx={}):
+
+    ns = data['ns'] if 'ns' in data else ''
 
     if name:
         # a named command is not the root
         rootCmd = node_shell(name, ctx)
     else:
-        rootCmd = node.node_root('dsh')
+        name = ns if ns else 'dsh'
+        rootCmd = node.node_root(name)
 
-
-    # the env/ctx for this context will be the parent plus any new vars defined
-    # with new vars overwriting the old
-    newctx = ctx.copy()
-    if 'vars' in data:
-        newctx.update(data['vars'])
-
-    # Set namespace though nothing is done with it yet
-    ns = data['ns'] if 'ns' in data else ''
+    # maintain a tuple in the node context that keeps nested context names
+    if '__DSH_CTX_PATH__' in rootCmd.context and rootCmd.context['__DSH_CTX_PATH__']:
+        rootCmd.context['__DSH_CTX_PATH__'] = rootCmd.context['__DSH_CTX_PATH__'] + (name,)
+    else:
+        rootCmd.context['__DSH_CTX_PATH__'] = (name,)
 
     # Process the remaining keys
-    for key, val in data.iteritems():
+    for key, val in data.items():
         if key in ['dsh', 'vars', 'ns']:
             pass
         elif key == 'contexts':
             for k, v in val.items():
-                rootCmd.add_child(node_dsh_context(v, k, ctx=newctx))
+                rootCmd.add_child(node_dsh_context(v, k, ctx=__make_child_context(rootCmd, data)))
         elif key == 'commands':
             for k, v in val.items():
-                rootCmd.add_child(node_dsh_cmd(k, v, newctx))
+                rootCmd.add_child(node_dsh_cmd(k, v, __make_child_context(rootCmd, data)))
         else:
-            rootCmd.add_child(node_dsh_cmd(key, val, newctx))
+            rootCmd.add_child(node_dsh_cmd(key, val, __make_child_context(rootCmd, data)))
     return rootCmd
 
 
@@ -127,18 +129,18 @@ def node_shell(name, ctx=None):
 
 def execute_context(snode, match_result, child_results):
 
-    # If child node results are available, then this node is assumed to be
-    # at the end of the input and will act as a interactive subcontext/shell
+    # If no child node results are available, then this node is assumed to be
+    # at the end of the input and will execute as a interactive subcontext/shell
     matched_input = match_result.matched_input()
     if len(matched_input) == 1 and matched_input[0] == snode.name and not match_result.input_remainder():
-        cnode = node.node_root(snode.context)
-        cnode.name = snode.name
+        # clone the this node as a root node and run it
+        cnode = node.node_root(snode.name, snode.context)
         for child in snode.get_children():
             cnode.add_child(child)
         return shell.run(cnode)
 
     # If there are children that returned a result, then just pass those on.
-    # In this case the given node is acting as a container
+    # In this case this node is acting as a container
     if child_results:
         return child_results
 
@@ -159,12 +161,15 @@ def main():
         data=DSH_FLANGE_PLUGIN,
         root_ns='prj',
         file_patterns=['.cmd.*'],
-        base_dir='~/workspace',
-        file_search_depth=2)
+        base_dir='.',
+        file_search_depth=1)
 
 
-    root = FG.mget('sire6')
+    root = FG.mget(model='dshnode')
 
+    if not root:
+        print('No valid dsh configuration was found')
+        return 1
 
     shell.run(root)
 

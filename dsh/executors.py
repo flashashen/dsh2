@@ -17,7 +17,7 @@ def get_executor_return_child_results():
 
 def __return_child_result(match_result, child_results):
     print('testing __return_child_result ..')
-    return child_results.values()[0]
+    return list(child_results.values())[0]
 
 def get_executor_return_child_result_value():
     return __return_child_result
@@ -71,6 +71,32 @@ def get_executor_shell_cmd(name, command, return_output=True, ctx=None):
     # return lambda ctx, matched_input, child_results: sys.stdout.write('test shell output')
 
 
+import re
+VAR_FORMAT_PATTERN = re.compile(r'{{(\w*)}}')
+
+def __format(target, sources=[]):
+
+    # do the replacements of {{var}} style vars.
+    #   m.group()  ->  {{var}}
+    #   m.group(1) ->  var
+    #
+    while True:
+        replacements = 0
+        varmatches = re.finditer(VAR_FORMAT_PATTERN, target)
+        if varmatches:
+            for m in varmatches:
+                for src in sources:
+                    # If the matching key is found in the source, make the substitution
+                    if src and m.group(1) in src:
+                        target = target.replace(m.group(), src[m.group(1)])
+                        replacements += 1
+        if replacements == 0:
+            break
+
+
+    return target
+
+
 
 def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_output=True):
 
@@ -79,25 +105,29 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
     # print('execute_shell_cmd:  {}\n\tnode_args: {}\n\tfree_args: {}\n\tenv: {} '.format(command, node_args, free_args, env))
 
     # the command is the given, static command string plus any extra input
-    args = node_args[:] + free_args[:]
-    cmd_string = ' '.join([command] + args)
+    # args = node_args[:] + free_args[:]
+    # cmd_string = ' '.join([command] + args)
 
-    # do the replacements of {{var}} style vars.
-    #   m.group()  ->  {{var}}
-    #   m.group(1) ->  var
-    #
-    if argvars or env:
-        import re
-        p = re.compile(r'{{(\w*)}}')
-        matches = re.finditer(p, cmd_string)
-        if matches:
-            for m in matches:
-                # arguments provided by child nodes take precedence
-                if argvars and m.group(1) in argvars:
-                    cmd_string = cmd_string.replace(m.group(), argvars[m.group(1)])
-                # next take values from context
-                if env and m.group(1) in env:
-                    cmd_string = cmd_string.replace(m.group(), env[m.group(1)])
+    cmd_string = __format(
+        ' '.join([command] + node_args[:] + free_args[:]),
+        [argvars, env])
+
+    # # do the replacements of {{var}} style vars.
+    # #   m.group()  ->  {{var}}
+    # #   m.group(1) ->  var
+    # #
+    # if argvars or env:
+    #     import re
+    #     p = re.compile(r'{{(\w*)}}')
+    #     matches = re.finditer(p, cmd_string)
+    #     if matches:
+    #         for m in matches:
+    #             # arguments provided by child nodes take precedence
+    #             if argvars and m.group(1) in argvars:
+    #                 cmd_string = cmd_string.replace(m.group(), argvars[m.group(1)])
+    #             # next take values from context
+    #             if env and m.group(1) in env:
+    #                 cmd_string = cmd_string.replace(m.group(), env[m.group(1)])
 
     cmdenv = os.environ.copy()
     if env:
@@ -105,8 +135,11 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
 
     # return the output
     if return_output:
-        import StringIO
-        output = StringIO.StringIO()
+        try:
+            from StringIO import StringIO
+        except ImportError:
+            from io import StringIO
+        output = StringIO()
         if execute_with_running_output(cmd_string, cmdenv, output) == 0:
             return output.getvalue().split('\n')
         else:
@@ -132,7 +165,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
     if not out:
         out = sys.stdout
 
-    out.write('running command: {}\n'.format(command))
+    out.write('Running command: {}\n'.format(command))
     out.flush()
 
     exitCode = 0
@@ -172,7 +205,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
             #     out.write(line_prefix)
             # out.write(output)
             # out.flush()
-            raise api.NodeExecutionFailed('command failed with status {}: {}'.format(exitCode, command))
+            raise api.NodeExecutionFailed('Command exited with status {}: {}'.format(exitCode, command))
 
     except subprocess.CalledProcessError as e:
         out.write(e.output)

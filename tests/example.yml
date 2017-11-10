@@ -11,12 +11,16 @@ dsh: 2
 ns: root.subcmd
 
 
+vars:
+  varcmdstr: echo this echo command was given by a var
 
 #
 #   Commands
 #
 
 cmd_string: "echo 'deafult is a shell command'"
+cmd_from_var: "{{varcmdstr}}"
+
 
 cmd_do_list:
   help: description or help text
@@ -37,7 +41,7 @@ cmd_do_nested:
       vars:
         # overrides the value of var1 set in parent do
         var1: child val1
-      do: "echo this cmd is defined in child. {{var1}} should equual 'child val1'"
+      do: echo this cmd is defined in child. {{var1}} should equual 'child val1'
 
 
 commands:

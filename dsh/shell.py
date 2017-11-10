@@ -12,7 +12,7 @@ from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.completion import Completer, Completion
 import shlex, threading, time
 
-import node
+from . import node
 
 
 # def create_grammar():
@@ -64,6 +64,13 @@ class ProtoCompleter(Completer):
 
 
 
+def prompt_from_cmdnode(n):
+    if not '__DSH_CTX_PATH__' in n.context:
+        return n.name + '$ '
+
+    prompt = ".".join(n.context['__DSH_CTX_PATH__'])
+    return prompt + '$ '
+
 
 def run(cmdnode):
     history = InMemoryHistory()
@@ -102,9 +109,11 @@ def run(cmdnode):
 
     try:
         while True:
+
             try:
-                text = prompt(cmdnode.name + '> ',
-                # lexer=lexer,
+                text = prompt(
+                    prompt_from_cmdnode(cmdnode),
+                    # lexer=lexer,
                     completer=completer,
                     get_bottom_toolbar_tokens=get_bottom_toolbar_tokens,
                     style=style,
@@ -112,14 +121,16 @@ def run(cmdnode):
                     patch_stdout=True,
                     get_title=None, # get_title,
                     history=history)
-
-                node.execute(cmdnode, text)
             except KeyboardInterrupt as e:
                 pass
             except EOFError as e:
                 raise
+
+            try:
+                node.execute(cmdnode, text)
             except Exception as e:
-                print str(e)
+                print(e)
+
     except EOFError as e:
         pass
 
