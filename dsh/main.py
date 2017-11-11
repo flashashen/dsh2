@@ -6,7 +6,7 @@ from dsh import shell, node, evaluators, matchers
 
 
 
-with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'schema.yml')) as f:
+with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/schema.yml')) as f:
     DSH_SCHEMA = yaml.load(f)
 
 def dsh_schema():

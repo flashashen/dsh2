@@ -448,7 +448,7 @@ def test__children_as_options():
 
 def test_children_as_dir_listing():
 
-    root = node.CmdNode('filecmd', child_get_func=node.get_children_method_dir_listing('dsh'))
+    root = node.CmdNode('filecmd', child_get_func=node.get_children_method_dir_listing('dsh/data'))
 
     path = root.resolve(['filecmd', 'schema.yml'])
     assert path.status == api.STATUS_COMPLETED
