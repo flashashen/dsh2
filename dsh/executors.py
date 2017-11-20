@@ -1,6 +1,6 @@
+from __future__ import print_function
 import subprocess, sys, traceback, six, os
 import api
-
 #
 #   Executor(context) methods.
 #
@@ -104,30 +104,11 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
     # print('execute_shell_cmd:  {}'.format(command))
     # print('execute_shell_cmd:  {}\n\tnode_args: {}\n\tfree_args: {}\n\tenv: {} '.format(command, node_args, free_args, env))
 
-    # the command is the given, static command string plus any extra input
-    # args = node_args[:] + free_args[:]
-    # cmd_string = ' '.join([command] + args)
 
     cmd_string = __format(
         ' '.join([command] + node_args[:] + free_args[:]),
         [argvars, env])
 
-    # # do the replacements of {{var}} style vars.
-    # #   m.group()  ->  {{var}}
-    # #   m.group(1) ->  var
-    # #
-    # if argvars or env:
-    #     import re
-    #     p = re.compile(r'{{(\w*)}}')
-    #     matches = re.finditer(p, cmd_string)
-    #     if matches:
-    #         for m in matches:
-    #             # arguments provided by child nodes take precedence
-    #             if argvars and m.group(1) in argvars:
-    #                 cmd_string = cmd_string.replace(m.group(), argvars[m.group(1)])
-    #             # next take values from context
-    #             if env and m.group(1) in env:
-    #                 cmd_string = cmd_string.replace(m.group(), env[m.group(1)])
 
     cmdenv = os.environ.copy()
     if env:
@@ -147,65 +128,34 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
 
     # return the exit code
     else:
-        return execute_with_running_output(cmd_string, cmdenv, line_prefix='\t')
+        return execute_with_running_output(cmd_string, cmdenv, line_prefix='')
 
 
 
 
 def execute_with_running_output(command, env=None, out=None, line_prefix=''):
 
+
     # filter non string env vars
     if env:
         cmdenv = {k: v for k, v in env.items() if isinstance(v, six.string_types)}
     else:
-        cmdenv =  {}
+        cmdenv = {}
 
-
-    # with given_dir(ctx['cmd_dir']):
-    if not out:
-        out = sys.stdout
-
-    out.write('Running command: {}\n'.format(command))
-    out.flush()
 
     exitCode = 0
+
     try:
-        process = subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=cmdenv)
-
-        # Poll process for new output until finished
-        while True:
-            nextline = process.stdout.readline()
-            if not nextline and process.poll() is not None:
-                break
-            # print(nextline)
-            if line_prefix:
-                out.write(line_prefix)
-            out.write(str(nextline))
-            out.flush()
-
-        out.write('\n')
-        out.flush()
-
-        output = process.communicate()[0]
-        exitCode = process.returncode
-
-        if (exitCode == 0):
-            pass
-            # if line_prefix:
-            #     out.write(line_prefix)
-            # out.write(output)
-            # out.flush()
+        # with given_dir(ctx['cmd_dir']):
+        if not out:
+            out = sys.stdout
+            subprocess.check_call(command, shell=True, env=cmdenv)
         else:
-            # if line_prefix:
-            #     out.write(line_prefix)
-            # out.write(output)
-            # out.flush()
-            raise api.NodeExecutionFailed('Command exited with status {}: {}'.format(exitCode, command))
+            p = subprocess.Popen(command, shell=True, env=cmdenv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            output, err = p.communicate()
+            exitCode = p.returncode
+            out.write(output)
+
 
     except subprocess.CalledProcessError as e:
         out.write(e.output)
