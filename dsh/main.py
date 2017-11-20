@@ -159,17 +159,35 @@ def main():
     import flange
     FG = flange.Flange(
         data=DSH_FLANGE_PLUGIN,
+        research_models=False,
         root_ns='prj',
-        file_patterns=['.cmd.*'],
+        file_patterns=['.cmd.yml'],
         base_dir='.',
+        file_ns_from_dirname=True,
         file_search_depth=1)
 
+    FG.add_file_set(
+        root_ns='prj',
+        file_patterns=['.cmd.yml'],
+        base_dir='~',
+        file_ns_from_dirname=False,
+        file_search_depth=1)
 
-    root = FG.mget(model='dshnode')
+    FG.research_models()
+
+
+    # from IPython import embed
+    # embed()
+
+    root = FG.mget(os.path.basename(os.getcwd()), model='dshnode')
 
     if not root:
         print('No valid dsh configuration was found')
+
+        FG.models.get('dshnode', raise_absent=True).validate(FG.get(os.path.basename(os.getcwd())))
+
         return 1
+
 
     shell.run(root)
 
