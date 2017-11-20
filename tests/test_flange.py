@@ -40,7 +40,7 @@ def test_config_model_registration():
     cmdroot = FG.get('tests', 'dshnode')
 
     path = cmdroot.resolve('platform')
-    assert sorted(path.match_result.completions) == ['build', 'ps', 'stop', 'up']
+    assert path.match_result.completions == ['up', 'stop', 'ps', 'build']
 
     path = cmdroot.resolve('platform build')
     assert path.match_result.completions == []

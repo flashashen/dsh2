@@ -8,7 +8,7 @@ readme.close()
 
 setup(
     name='dsh2',
-    version='2.0.0',
+    version='2.0.2',
     author='flashashen',
     author_email='flashashen@gmail.com',
     description='Autoload configuration from multiple sources. Autotranslate config into usable objects',
