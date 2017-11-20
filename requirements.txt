@@ -1,5 +1,5 @@
 anyconfig==0.9.3
-flange==0.0.2
+flange==0.0.3
 jsonschema==2.6.0
 prompt-toolkit==1.0.15
 PyYAML==3.12
