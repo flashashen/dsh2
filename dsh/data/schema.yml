@@ -102,6 +102,8 @@ definitions:
         additionalProperties:
             oneOf:
               - type: string
+              - type: boolean
               - type: object
+              - type: array
 
 
