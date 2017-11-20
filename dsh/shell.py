@@ -58,8 +58,8 @@ class ProtoCompleter(Completer):
                 yield Completion(
                     a,
                     -len(word_before) if a.startswith(word_before) else 0, # prevent replacement of prior, complete word
-                    # display='alt display for {}'.format(a.name),
-                    display_meta=None,
+                    # display='alt display for {}'.format(a),
+                    # display_meta='meta info',
                     get_display_meta=None)
 
 
@@ -111,6 +111,7 @@ def run(cmdnode):
         while True:
 
             try:
+                import sys
                 text = prompt(
                     prompt_from_cmdnode(cmdnode),
                     # lexer=lexer,
@@ -118,16 +119,20 @@ def run(cmdnode):
                     get_bottom_toolbar_tokens=get_bottom_toolbar_tokens,
                     style=style,
                     key_bindings_registry=registry,
-                    patch_stdout=True,
+                    patch_stdout=False,
                     get_title=None, # get_title,
                     history=history)
             except KeyboardInterrupt as e:
-                pass
+                import sys
+                sys.stdout.flush()
             except EOFError as e:
                 raise
 
             try:
                 node.execute(cmdnode, text)
+            except KeyboardInterrupt:
+                # dump anything to stdout to prevent last command being re-executed
+                print ' ** interrupted **'
             except Exception as e:
                 print(e)
 
