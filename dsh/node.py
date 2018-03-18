@@ -94,6 +94,7 @@ def node_free_value(name=None):
 
 def node_string(s):
     return CmdNode(
+        name=s,
         method_match=matchers.get_matcher_exact_string(s),
         method_evaluate=evaluators.no_children,
         method_execute=executors.get_executor_return_matched_input())
@@ -108,6 +109,11 @@ def node_root(name='root', ctx=None):
         method_evaluate=evaluators.choose_one_child,
         context=ctx)
     n.execute = lambda matched_input, child_results: executors.get_executor_return_child_results()
+
+    bang = node_shell_command("!", command=' ', ctx=ctx, return_output=False)
+    bang.match = matchers.wrap_matcher_swallow_completions(bang.match)
+    n.add_child(bang)
+
     return n
 
 
@@ -252,13 +258,49 @@ class CmdNode(object):
         return self
 
 
-    def resolve(self, matched_input):
+
+    def on_failure(self, on_failure_node):
+        """
+        Allow an on-failure node to be given. This node will be resolved against empty input and
+        executed if the main execute method raises an exception. A node is used rather than a simple
+        execute method to allow recursive and multiple commands (same jsonschema cmd type) .. and why not?
+
+        :param on_failure_node: a node to resolve and execute on failure
+        :return:
+        """
+
+        def wrapped(exe, failure_node, match_result, child_results):
+            try:
+                print('executing wrapped exe..')
+                return exe(match_result, child_results)
+            except Exception as e:
+                print('exe failed. resolving and executing failure node')
+                # use module execute method which will resolve against empty input and execute
+                return execute(failure_node)
+                # re-raise the original
+                # raise e
+
+        old_exe = self.execute
+        self.execute = lambda match_result, child_results: wrapped(old_exe, on_failure_node, match_result, child_results)
+
+
+
+
+    def resolve(self, matched_input, input_mode=api.MODE_COMPLETE):
         path = ResolutionPath(self)
         if matched_input and isinstance(matched_input, six.string_types):
-            matched_input = shlex.split(matched_input)
-        ResolutionPath.resolve(path, matched_input if matched_input else [])
+            try:
+                matched_input = shlex.split(matched_input)
+            except ValueError as e:
+                # ignore mismatch quote exception. Unresolved path will be returned
+                if not 'quot' in str(e):
+                    raise
+        ResolutionPath.resolve(path, matched_input if matched_input else [], start_index=0, input_mode=input_mode)
         return path
 
+
+    def complete(self, matched_input):
+        return self.resolve(matched_input, api.MODE_COMPLETE)
 
 
 
@@ -320,6 +362,11 @@ class ResolutionPath:
         if path.match_result.status not in [api.MATCH_FULL]:
             return
 
+
+        #
+        #   The input fully matches this node. Proceed with resolving children
+        #
+
         # Call the cmd node get_children method. Children can be dynamic based on context and
         # external conditions. Its up to the resolver for now to be careful with this feature.
         # something will need to be done later to optimize so that slow calls aren't made more
@@ -373,7 +420,9 @@ class ResolutionPath:
 
                     # Stop index and completions come from winner
                     path.match_result.stop = ranked[0].match_result.stop
-                    path.match_result.completions = ranked[0].match_result.completions[:]
+
+                    if input_mode == api.MODE_COMPLETE:
+                        path.match_result.completions = ranked[0].match_result.completions[:]
 
                     # If the winner is unsatisfied, then don't give its peers a chance to consume more input.
                     # Otherwise change the index into the input and see if its peers can do something with the
@@ -388,22 +437,34 @@ class ResolutionPath:
                 #   -> current path cannot be complete. map complete to satisfied if needed.
                 else:
                     # By definition, this node can't be completed if there are multiple possible
-                    # resolutions or completions of the input
+                    # resolutions or completions of the input  !!! this should be corrected in eval methods
+                    # but can't currently distinguish between unsatisfied and DISsatisfied
                     if path.status == api.STATUS_COMPLETED:
                         path.status = api.STATUS_SATISFIED
 
                     # Increase the stop index and extend the current completions
                     path.match_result.stop = ranked[0].match_result.stop
-                    for child in path.children:
-                        path.match_result.completions.extend(child.match_result.completions)
+
+                    # print 'two of same length. mode: {}. end of input: {}'.format(input_mode == api.MODE_EXECUTE, ranked[0].match_result.stop >= len(input_segments))
+                    if input_mode == api.MODE_COMPLETE:
+                        for child in path.children:
+                            path.match_result.completions.extend(child.match_result.completions)
+                    elif input_mode == api.MODE_EXECUTE and ranked[0].match_result.stop >= len(input_segments):
+                        # In execute mode there is no more input coming so if the last segment of the
+                        # input has been consumed, then take the highest ranked path as the winner
+                        path.resolutions.append(ranked[0])
+                        break
+
                     break
 
 
             else:
                 # case 3: no children consumed input
                 # -> eval is complete as is. take completions from all
-                for child in remaining_children:
-                    path.match_result.completions.extend(child.match_result.completions)
+                if input_mode == api.MODE_COMPLETE:
+                    for child in remaining_children:
+                        path.match_result.completions.extend(child.match_result.completions)
+
                 # In the case of an ordered list of children that resolve without input, the execution
                 # order should match the order in which they're defined. Since the execution order is last
                 # to first, these ordered children need to be reversed so that they will be executed in
@@ -491,9 +552,10 @@ class ResolutionPath:
 
 
 def execute(root, input=None):
-    return resolve(root, input).execute()
+    return root.resolve(input, api.MODE_EXECUTE).execute()
 
-def resolve(root, input):
-    return root.resolve(input)
+def complete(root, input):
+    return root.resolve(input, api.MODE_COMPLETE)
+
 
 

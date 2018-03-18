@@ -42,7 +42,7 @@ class ProtoCompleter(Completer):
         counter += 1
         # print('**********************  get completions {} **********************'.format(counter))
 
-        path = self.root_proto.resolve(document.text_before_cursor)
+        path = self.root_proto.complete(document.text_before_cursor)
         # resolver.resolve(path, shlex.split(document.text_before_cursor), 0)
         c = path.match_result.completions
 
@@ -76,12 +76,12 @@ def run(cmdnode):
     history = InMemoryHistory()
 
     def get_bottom_toolbar_tokens(cli):
-        return [(Token.Toolbar, '^H ^W : Hello World')]
+        return [(Token.Toolbar, '^H ^D : Print current context')]
 
     # We start with a `Registry` of default key bindings.
     registry = load_key_bindings_for_prompt()
 
-    @registry.add_binding(Keys.ControlH, Keys.ControlW)
+    @registry.add_binding(Keys.ControlH, Keys.ControlD)
     def _(event):
         """
         Print 'hello world' in the terminal when ControlT is pressed.
@@ -89,9 +89,10 @@ def run(cmdnode):
         hidden right before ``print_hello`` gets executed and it's drawn again
         after it. (Otherwise this would destroy the output.)
         """
-        def print_hello():
-            print('hello world')
-        event.cli.run_in_terminal(print_hello)
+        def dump_context():
+            import pprint
+            pprint.pprint(cmdnode.context)
+        event.cli.run_in_terminal(dump_context)
 
 
     # Print a counter every second in another thread.

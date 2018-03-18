@@ -10,24 +10,37 @@ allOf:
   - type: object
     properties:
       dsh:
-        $ref: "#/definitions/dsh_versions"
+        $ref: "#/definitions/dsh"
+#      include:
+#        $ref: "#/definitions/type_include"
     required:
       - dsh
-  - $ref: "#/definitions/type_context"
+    additionalProperties: true
 
 
 definitions:
 
     dsh_versions: { "enum": [1,2] }
 
-    root:
-      type: object
-      properties:
-        dsh:
-          $ref: "#/definitions/type_context"
-      additionalProperties: true
-      required:
-        - dsh
+    dsh:
+      oneOf:
+        - $ref: "#/definitions/dsh_versions"
+        - type: object
+          properties:
+              # namespace of this context. 'apps.app' resolves to dsh command 'dsh>apps app'
+              ns:
+                type: string
+              version:
+                $ref: "#/definitions/dsh_versions"
+
+#    root:
+#      type: object
+#      properties:
+#        dsh:
+#          $ref: "#/definitions/dsh"
+#      additionalProperties: true
+#      required:
+#        - dsh
 
     type_context:
         type: object
@@ -56,6 +69,13 @@ definitions:
           $ref: "#/definitions/type_command"
 
 
+    type_include:
+        oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+
     type_contexts:
         type: object
         additionalProperties:
@@ -78,7 +98,9 @@ definitions:
                 do:
                   $ref: "#/definitions/type_command"
                 dsh:
-                  $ref: "#/definitions/dsh_version"
+                  $ref: "#/definitions/dsh_versions"
+                on_failure:
+                  $ref: "#/definitions/type_command"
 
             additionalProperties: false
             required:

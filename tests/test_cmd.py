@@ -465,6 +465,13 @@ def test_shell_command():
     assert os.path.pardir in n.execute(api.MatchResult.from_input('-a'), None)
 
 
+def test_shell_command_with_failure():
+
+    n = node.node_shell_command('testfailure', 'false', True)
+    n.on_failure(node.node_shell_command('onfailure', 'echo failed', True))
+    assert 'failed' in n.execute(api.MatchResult.from_input('ls -a'), None)
+
+
 
 def test_shell_command_var_substitution():
 

@@ -16,7 +16,6 @@ def get_executor_return_child_results():
     return lambda match_result, child_results: child_results
 
 def __return_child_result(match_result, child_results):
-    print('testing __return_child_result ..')
     return list(child_results.values())[0]
 
 def get_executor_return_child_result_value():
@@ -101,18 +100,21 @@ def __format(target, sources=[]):
 def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_output=True):
 
 
-    # print('execute_shell_cmd:  {}'.format(command))
-    # print('execute_shell_cmd:  {}\n\tnode_args: {}\n\tfree_args: {}\n\tenv: {} '.format(command, node_args, free_args, env))
-
-
     cmd_string = __format(
         ' '.join([command] + node_args[:] + free_args[:]),
         [argvars, env])
 
+    if api.verbose(env):
+        print('execute_shell_cmd:  {}'.format(cmd_string))
 
     cmdenv = os.environ.copy()
     if env:
-        cmdenv.update(env)
+        for k in env:
+            # for each env var, do recursive substitution
+            try:
+               cmdenv[k] = __format(env[k], [argvars, env])
+            except:
+                pass
 
     # return the output
     if return_output:
@@ -155,7 +157,8 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
             output, err = p.communicate()
             exitCode = p.returncode
             out.write(output)
-
+            if exitCode != 0:
+                raise api.NodeExecutionFailed('command failed with status {}: {}'.format(exitCode, command))
 
     except subprocess.CalledProcessError as e:
         out.write(e.output)
@@ -163,6 +166,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
         raise api.NodeExecutionFailed(e)
     # except Exception as ae:
     #     traceback.print_exc(file=out)
+
 
     return exitCode
 

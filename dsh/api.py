@@ -56,3 +56,14 @@ class MatchResult(object):
             input,
             start if start else 0,
             stop if stop else len(input)-1)
+
+
+
+
+DSH_VERBOSE = "__DSH_VERBOSE__"
+def verbose(ctx):
+    try:
+        return ctx[DSH_VERBOSE]
+    except:
+        return False
+
