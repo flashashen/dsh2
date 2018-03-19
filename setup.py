@@ -8,10 +8,10 @@ readme.close()
 
 setup(
     name='dsh2',
-    version='2.0.2',
+    version='2.0.3',
     author='flashashen',
     author_email='flashashen@gmail.com',
-    description='Autoload configuration from multiple sources. Autotranslate config into usable objects',
+    description='console application to organize commands and environments',
     license = "MIT",
     url="https://github.com/flashashen/dsh2",
     classifiers= [
@@ -25,7 +25,7 @@ setup(
 
     ],
     platforms='osx,linux',
-    keywords = "shell console configuration yaml object registry",
+    keywords = "shell console yaml",
     long_description=README_TEXT,
     packages=['dsh'],
     package_data={'dsh': ['data/*']},
@@ -33,10 +33,7 @@ setup(
     test_suite="nose.collector",
     install_requires=[
         'flange',
-        'PyYAML',
         'prompt_toolkit',
-        'anyconfig',
-        'jsonschema',
         'six',
 
     ],

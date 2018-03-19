@@ -219,16 +219,17 @@ def get_flange_data(options=None):
     return f
 
 
-
-import click
-
-@click.group(invoke_without_command=True)
-@click.option('--verbose/--not-verbose', default=False)
-@click.pass_context
-def main(ctx, verbose):
+#
+# import click
+#
+# @click.group(invoke_without_command=True)
+# @click.option('--verbose/--not-verbose', default=False)
+# @click.pass_context
+# def main(ctx, verbose):
+def main():
 
     options = {
-        api.DSH_VERBOSE: verbose
+        # api.DSH_VERBOSE: verbose
     }
 
     FG = get_flange_data(options)

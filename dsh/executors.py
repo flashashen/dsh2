@@ -153,7 +153,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
             out = sys.stdout
             subprocess.check_call(command, shell=True, env=cmdenv)
         else:
-            p = subprocess.Popen(command, shell=True, env=cmdenv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            p = subprocess.Popen(command, shell=True, env=cmdenv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
             output, err = p.communicate()
             exitCode = p.returncode
             out.write(output)

@@ -133,7 +133,7 @@ def run(cmdnode):
                 node.execute(cmdnode, text)
             except KeyboardInterrupt:
                 # dump anything to stdout to prevent last command being re-executed
-                print ' ** interrupted **'
+                print(' ** interrupted **')
             except Exception as e:
                 print(e)
 
