@@ -67,3 +67,51 @@ def verbose(ctx):
     except:
         return False
 
+
+
+
+
+#
+#
+#   Var substitutions
+#
+#
+import re
+VAR_FORMAT_PATTERN = re.compile(r'{{(\w*)}}')
+
+
+def __format(target, sources=[]):
+
+    # do the replacements of {{var}} style vars.
+    #   m.group()  ->  {{var}}
+    #   m.group(1) ->  var
+    #
+    while True:
+        replacements = 0
+        varmatches = re.finditer(VAR_FORMAT_PATTERN, target)
+        if varmatches:
+            for m in varmatches:
+                for src in sources:
+                    # If the matching key is found in the source, make the substitution
+                    if src and m.group(1) in src:
+                        target = target.replace(m.group(), src[m.group(1)])
+                        replacements += 1
+        if replacements == 0:
+            break
+
+    return target
+
+
+def __format_dict(env, argvars={}):
+    subsenv = {}
+    if env:
+        for k in env:
+            # for each env var, do recursive substitution
+            try:
+                subsenv[k] = __format(env[k], [argvars, env])
+            except:
+                pass
+    return subsenv
+
+
+

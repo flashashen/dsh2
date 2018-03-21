@@ -15,7 +15,7 @@ allOf:
 #        $ref: "#/definitions/type_include"
     required:
       - dsh
-    additionalProperties: true
+  - $ref: "#/definitions/type_context"
 
 
 definitions:
@@ -33,14 +33,7 @@ definitions:
               version:
                 $ref: "#/definitions/dsh_versions"
 
-#    root:
-#      type: object
-#      properties:
-#        dsh:
-#          $ref: "#/definitions/dsh"
-#      additionalProperties: true
-#      required:
-#        - dsh
+
 
     type_context:
         type: object
@@ -69,18 +62,20 @@ definitions:
           $ref: "#/definitions/type_command"
 
 
-    type_include:
-        oneOf:
-          - type: string
-          - type: array
-            items:
-              type: string
+#
+#    type_includes:
+#        oneOf:
+#          - type: string
+#          - type: array
+#            items:
+#              type: string
 
-    type_contexts:
-        type: object
-        additionalProperties:
-            anyOf:
-              - $ref: "#/definitions/type_context"
+
+#    type_contexts:
+#        type: object
+#        additionalProperties:
+#            anyOf:
+#              - $ref: "#/definitions/type_context"
 
 
     type_command:

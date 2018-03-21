@@ -126,6 +126,14 @@ def node_shell_command(name, command, return_output=True, ctx=None):
     return n
 
 
+def node_display_message(name, message):
+
+    # repeat the test with variable substitution in the command string
+    n = CmdNode(name)
+    n.execute = executors.get_executor_shell_cmd(
+        name, "echo 'invalid command. maybe was supposed to be a context'" , return_output=True)
+    return n
+
 
 def node_python(name, method, args_required=None, args_optional=None, options=None, ctx=None):
     # Return a node that executes a python method. By default, children are all required, which

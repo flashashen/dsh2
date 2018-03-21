@@ -1,6 +1,7 @@
 
 import os, yaml, six, copy
-from dsh import shell, api, node, evaluators, matchers, executors
+from dsh import shell, node, evaluators, matchers
+from flange import cfg
 
 
 
@@ -59,14 +60,19 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
         if 'vars' in val:
             newctx.update(val['vars'])
 
-        cn = node_dsh_cmd(
-            key+'_do_dict',
-            val['do'],
-            ctx=newctx)
-        root.add_child(cn)
-        # swallow completions
-        cn.match = matchers.match_always_consume_no_input
+        try:
+            cn = node_dsh_cmd(
+                key+'_do_dict',
+                val['do'],
+                ctx=newctx)
+
+            root.add_child(cn)
+            # swallow completions
+            cn.match = matchers.match_always_consume_no_input
         # cn.evaluate = evaluators.require_all_children
+        except Exception as e:
+            # replace the root node with an error message echo
+            root = node.node_display_message(key, str(e))
 
         if 'on_failure' in val:
             cn.on_failure(node_dsh_cmd(
@@ -107,6 +113,7 @@ def node_dsh_context(data, name=None, ctx={}):
 
     # Process the remaining keys
     for key, val in data.items():
+        # print 'dsh ctx contructr ', key, val
         if key in ['dsh', 'vars', 'ns', 'include']:
             pass
         elif key == 'contexts':
@@ -116,6 +123,12 @@ def node_dsh_context(data, name=None, ctx={}):
             for k, v in val.items():
                 rootCmd.add_child(node_dsh_cmd(k, v, __make_child_context(rootCmd.context, data)))
         else:
+            # print 'visiting ', key, ' as a ctx rather than cmd'
+            # if isinstance(val, dict) and not 'do' in val:
+            #     print 'attempting ', key, ' as a ctx rather than cmd'
+            #     # This is not a valid command node. its mostly likely a context. try it that way
+            #     rootCmd.add_child(node_dsh_context(val, key, ctx=rootCmd.context))
+            # else:
             rootCmd.add_child(node_dsh_cmd(key, val, __make_child_context(rootCmd.context, data)))
     return rootCmd
 
@@ -156,68 +169,70 @@ def get_executor_shell(cnode):
 
 
 
-
-def get_flange_data(options=None):
+def get_flange_cfg(
+        options=None,
+        root_ns='dsh2',
+        base_dir=['.', '~'],
+        file_patterns=['.cmd.yml'],
+        file_search_depth=2,
+        file_ns_from_dirname=False):
 
     data = {}
     data.update(DSH_FLANGE_PLUGIN)
     if options:
         data.update(options)
 
-    from flange import cfg
+    # get flange config. dont pass root_ns so that config that does not
+    # contain the 'dsh' element will not fall under dsh root node. If it
+    # did then there will more likely be invalid config
     f = cfg.Cfg(
         data=data,
         include_os_env=False,
-        # research_models=False,
-        root_ns='root',
-        file_patterns=['.*cmd.yml'],
-        base_dir=[ '.', '~'],
-        # base_dir=['.'],
-        # file_ns_from_dirname=False,
-        file_search_depth=0)
+        file_patterns=file_patterns,
+        file_exclude_patterns=[],
+        file_ns_from_dirname=file_ns_from_dirname,
+        base_dir=base_dir,
+        file_search_depth=file_search_depth,
+        merge=False,
+        research=False,
+        key_filter=None)
 
-    # # add each
-    # if f.get('include'):
-    #     includes = [os.path.realpath(os.path.expanduser(x)) for x in f.get('include')]
-    # else:
-    #     includes = []
-    #
-    # # Add any top level includes
-    # for x in includes:
-    #     if not os.path.exists(x):
-    #         print 'Path does not exist {}'.format(x)
-    #         continue
-    #     elif os.path.isdir(x):
-    #         print 'including directory ', x
-    #         path = x
-    #         basename = '.cmd.xml'
-    #     else:
-    #         print 'including file ', x
-    #         path, basename = os.path.split(x)
-    #
-    #     f.add_file_set(
-    #             root_ns='prj.contexts',
-    #             file_patterns=[basename],
-    #             base_dir=path,
-    #             file_ns_from_dirname=True,
-    #             file_search_depth=1)
-    #
-    # # Add current working dir if not already included
-    # if os.getcwd() not in includes:
-    #     f.add_file_set(
-    #         root_ns='prj.contexts',
-    #         file_patterns=['.cmd.yml'],
-    #         base_dir='.',
-    #         file_ns_from_dirname=True,
-    #         file_search_depth=1)
+    ns_separator = f.unflatten_separator + 'contexts' + f.unflatten_separator
+    # massage source namespaces so the merged config lines up right in dsh
+    # '' -> root
+    # root -> root
+    # prj -> root__contexts__prj
+    # root.prj --> root__contexts__prj
+    for s in f.sources:
+        if s.contents and 'ns' in s.contents and 'dsh' in s.contents:
+            if not s.contents['ns'] or s.contents['ns'] == root_ns:
+                newns = root_ns
+            elif s.contents['ns'].startswith(root_ns):
+                newns = s.contents['ns'].replace('.', ns_separator)
+            else:
+                newns = root_ns + ns_separator + s.contents['ns'].replace('.', ns_separator)
+            # print 'setting {} ns from {} to {}'.format(s.uri, s.ns, newns)
+            s.ns = newns
 
+    # f.merge_sources()
+    # print 'a', sorted([s.ns for s in f.sources])
+    # f.sources[0].ns = 'something  new...'
+    f.refresh(gather=False, merge=True, research=True)
+    # f.sources[0].ns = 'something completely new...'
+    # print 'b', sorted([s.ns for s in f.sources])
 
-    # sources = [x['src'] for x in f.sources if x['src'] not in ['python']]
-    # print('loaded config from: \n\t- {}'.format('\n\t-'.join(sources)))
-
-    # f.research_models()
     return f
 
+
+def run_from_flange(f, root_ns='dsh2'):
+    root = f.mget(root_ns, model='dshnode')
+
+    if not root:
+        print('No valid dsh configuration was found')
+        f.models.get('dshnode', raise_absent=True).validate(f.get(os.path.basename(os.getcwd())))
+        return 1
+
+    shell.run(root, f)
 
 #
 # import click
@@ -226,13 +241,22 @@ def get_flange_data(options=None):
 # @click.option('--verbose/--not-verbose', default=False)
 # @click.pass_context
 # def main(ctx, verbose):
-def main():
+def run(options=None,
+        base_dir=['.', '~'],
+        file_patterns=['.cmd.yml'],
+        file_search_depth=0):
 
     options = {
         # api.DSH_VERBOSE: verbose
     }
 
-    FG = get_flange_data(options)
+    f = get_flange_cfg(
+        options=options,
+        base_dir=base_dir,
+        file_patterns=file_patterns,
+        file_search_depth=file_search_depth)
+
+    run_from_flange(f)
 
     # print FG.info()
     # import json
@@ -240,8 +264,8 @@ def main():
     # # from IPython import embed; embed()
     # print FG.info()
 
+
     # root = FG.mget(os.path.basename(os.getcwd()), model='dshnode')
-    root = FG.mget('root', model='dshnode')
 
     # root = node.node_container('root')
     # root.one_of([node_shell('panelson',FG.mget('panelson')), node.CmdNode('cmd_two').one_of(['opt1', 'opt2'])])
@@ -254,14 +278,10 @@ def main():
     #
     # import pprint
     # pprint.pprint(FG.data)
-    if not root:
-        print('No valid dsh configuration was found')
-        FG.models.get('dshnode', raise_absent=True).validate(FG.get(os.path.basename(os.getcwd())))
-        return 1
-
-    shell.run(root)
 
 
+def main():
+    run()
 
 if __name__ == '__main__':
-    main()
+    run()

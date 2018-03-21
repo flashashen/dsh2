@@ -70,44 +70,22 @@ def get_executor_shell_cmd(name, command, return_output=True, ctx=None):
     # return lambda ctx, matched_input, child_results: sys.stdout.write('test shell output')
 
 
-import re
-VAR_FORMAT_PATTERN = re.compile(r'{{(\w*)}}')
-
-def __format(target, sources=[]):
-
-    # do the replacements of {{var}} style vars.
-    #   m.group()  ->  {{var}}
-    #   m.group(1) ->  var
-    #
-    while True:
-        replacements = 0
-        varmatches = re.finditer(VAR_FORMAT_PATTERN, target)
-        if varmatches:
-            for m in varmatches:
-                for src in sources:
-                    # If the matching key is found in the source, make the substitution
-                    if src and m.group(1) in src:
-                        target = target.replace(m.group(), src[m.group(1)])
-                        replacements += 1
-        if replacements == 0:
-            break
-
-
-    return target
 
 
 
 def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_output=True):
 
 
-    cmd_string = __format(
+    cmd_string = api.__format(
         ' '.join([command] + node_args[:] + free_args[:]),
         [argvars, env])
 
     if api.verbose(env):
         print('execute_shell_cmd:  {}'.format(cmd_string))
 
-    cmdenv = os.environ.copy()
+
+    cmdenv = api.__format_dict(os.environ.copy())
+
     if env:
         for k in env:
             # for each env var, do recursive substitution

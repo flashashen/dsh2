@@ -12,7 +12,7 @@ from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.completion import Completer, Completion
 import shlex, threading, time
 
-from . import node
+from . import node, api
 
 
 # def create_grammar():
@@ -72,17 +72,17 @@ def prompt_from_cmdnode(n):
     return prompt + '$ '
 
 
-def run(cmdnode):
+def run(cmdnode, fcfg=None):
     history = InMemoryHistory()
 
     def get_bottom_toolbar_tokens(cli):
-        return [(Token.Toolbar, '^H ^D : Print current context')]
+        return [(Token.Toolbar, '^H ^D : Print current context    ^H ^P : Ipython')]
 
     # We start with a `Registry` of default key bindings.
     registry = load_key_bindings_for_prompt()
 
     @registry.add_binding(Keys.ControlH, Keys.ControlD)
-    def _(event):
+    def _dump(event):
         """
         Print 'hello world' in the terminal when ControlT is pressed.
         We use ``run_in_terminal``, because that ensures that the prompt is
@@ -91,8 +91,42 @@ def run(cmdnode):
         """
         def dump_context():
             import pprint
-            pprint.pprint(cmdnode.context)
+            pprint.pprint(api.__format_dict(cmdnode.context))
         event.cli.run_in_terminal(dump_context)
+
+    @registry.add_binding(Keys.ControlH, Keys.ControlP)
+    def _ipy(event):
+        """
+        Print 'hello world' in the terminal when ControlT is pressed.
+        We use ``run_in_terminal``, because that ensures that the prompt is
+        hidden right before ``print_hello`` gets executed and it's drawn again
+        after it. (Otherwise this would destroy the output.)
+        """
+        def runipy():
+             # First create a config object from the traitlets library
+            from traitlets.config import Config
+            c = Config()
+
+            # Now we can set options as we would in a config file:
+            #   c.Class.config_value = value
+            # For example, we can set the exec_lines option of the InteractiveShellApp
+            # class to run some code when the IPython REPL starts
+            c.InteractiveShellApp.exec_lines = [
+                'print("\\dshnode command object and fcfg configuration objects are in scope\\n")',
+                'print("In [0]: fcfg.info()")',
+                'fcfg.info()'
+            ]
+            c.InteractiveShell.colors = 'LightBG'
+            c.InteractiveShell.confirm_exit = False
+            c.TerminalIPythonApp.display_banner = False
+
+            # Now we start ipython with our configuration
+            import IPython
+            IPython.start_ipython(config=c, user_ns={'dshnode': cmdnode, 'fcfg': fcfg})
+
+        event.cli.run_in_terminal(runipy)
+
+
 
 
     # Print a counter every second in another thread.
