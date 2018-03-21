@@ -10,6 +10,7 @@ from prompt_toolkit.key_binding.defaults import load_key_bindings_for_prompt
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.contrib.regular_languages.compiler import compile
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.filters import Condition
 import shlex, threading, time
 
 from . import node, api
@@ -72,11 +73,25 @@ def prompt_from_cmdnode(n):
     return prompt + '$ '
 
 
+FLANGE_CFG_SAVE = None
+
+
 def run(cmdnode, fcfg=None):
+
+    global FLANGE_CFG_SAVE
     history = InMemoryHistory()
 
+    if fcfg and not FLANGE_CFG_SAVE:
+        FLANGE_CFG_SAVE = fcfg
+
+
     def get_bottom_toolbar_tokens(cli):
-        return [(Token.Toolbar, '^H ^D : Print current context    ^H ^P : Ipython')]
+
+        tokens = [
+            (Token.Toolbar, '^H ^D : dump context')]
+        if __filter_ipython_installed() :
+            tokens.append((Token.Toolbar, '^H ^P : Ipython shell'))
+        return tokens
 
     # We start with a `Registry` of default key bindings.
     registry = load_key_bindings_for_prompt()
@@ -94,7 +109,15 @@ def run(cmdnode, fcfg=None):
             pprint.pprint(api.__format_dict(cmdnode.context))
         event.cli.run_in_terminal(dump_context)
 
-    @registry.add_binding(Keys.ControlH, Keys.ControlP)
+
+    def __filter_ipython_installed(ignore=None):
+        try:
+            import IPython
+            return True
+        except:
+            return False
+
+    @registry.add_binding(Keys.ControlH, Keys.ControlP, filter=Condition(__filter_ipython_installed))
     def _ipy(event):
         """
         Print 'hello world' in the terminal when ControlT is pressed.
@@ -103,28 +126,14 @@ def run(cmdnode, fcfg=None):
         after it. (Otherwise this would destroy the output.)
         """
         def runipy():
-             # First create a config object from the traitlets library
-            from traitlets.config import Config
-            c = Config()
-
-            # Now we can set options as we would in a config file:
-            #   c.Class.config_value = value
-            # For example, we can set the exec_lines option of the InteractiveShellApp
-            # class to run some code when the IPython REPL starts
-            c.InteractiveShellApp.exec_lines = [
-                'print("\\dshnode command object and fcfg configuration objects are in scope\\n")',
-                'print("In [0]: fcfg.info()")',
-                'fcfg.info()'
-            ]
-            c.InteractiveShell.colors = 'LightBG'
-            c.InteractiveShell.confirm_exit = False
-            c.TerminalIPythonApp.display_banner = False
 
             # Now we start ipython with our configuration
             import IPython
-            IPython.start_ipython(config=c, user_ns={'dshnode': cmdnode, 'fcfg': fcfg})
+            IPython.embed(
+                header="Added to IPython namespace: dsh node: '{}', flange cfg: '{}'".format(cmdnode.name, 'fcfg'),
+                user_ns={cmdnode.name: cmdnode, 'fcfg': fcfg if fcfg else FLANGE_CFG_SAVE})
 
-        event.cli.run_in_terminal(runipy)
+        event.cli.run_in_terminal(lambda: runipy())
 
 
 

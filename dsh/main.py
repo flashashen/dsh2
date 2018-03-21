@@ -244,7 +244,7 @@ def run_from_flange(f, root_ns='dsh2'):
 def run(options=None,
         base_dir=['.', '~'],
         file_patterns=['.cmd.yml'],
-        file_search_depth=0):
+        file_search_depth=2):
 
     options = {
         # api.DSH_VERBOSE: verbose
