@@ -20,7 +20,7 @@ allOf:
 
 definitions:
 
-    dsh_versions: { "enum": [1,2] }
+    dsh_versions: { "enum": [2] }
 
     dsh:
       oneOf:

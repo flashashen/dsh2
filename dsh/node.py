@@ -1,4 +1,4 @@
-import random, string, six, os, traceback, sys, shlex, os, contextlib
+import random, string, six, os, traceback, sys, shlex, os
 import api
 import matchers
 import executors
@@ -309,26 +309,6 @@ class CmdNode(object):
 
     def complete(self, matched_input):
         return self.resolve(matched_input, api.MODE_COMPLETE)
-
-
-
-
-@contextlib.contextmanager
-def given_dir(path):
-    """
-    Usage:
-    >>> with given_dir(prj_base):
-    ...   subprocess.call('project_script.sh')
-    """
-    if not path:
-        yield
-
-    starting_directory = os.getcwd()
-    try:
-        os.chdir(os.path.abspath(os.path.expanduser(path)))
-        yield
-    finally:
-        os.chdir(starting_directory)
 
 
 

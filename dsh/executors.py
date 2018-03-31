@@ -1,5 +1,5 @@
 from __future__ import print_function
-import subprocess, sys, traceback, six, os
+import subprocess, sys, traceback, six, os, contextlib
 import api
 #
 #   Executor(context) methods.
@@ -33,7 +33,7 @@ def get_executor_python(method=None):
     return lambda match_result, child_results: executor_python_method(method, child_results)
 
 def executor_python_method(method, args=None):
-    print(method, args)
+    # print(method, args)
     if args:
         return method(**args)
     else:
@@ -90,7 +90,7 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
         for k in env:
             # for each env var, do recursive substitution
             try:
-               cmdenv[k] = __format(env[k], [argvars, env])
+               cmdenv[k] = api.__format(env[k], [argvars, env])
             except:
                 pass
 
@@ -113,9 +113,33 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
 
 
 
+
+
+@contextlib.contextmanager
+def working_directory(path):
+    """
+    Usage:
+    >>> with working_directory(prj_base):
+    ...   subprocess.call('project_script.sh')
+    """
+    if not path:
+        yield
+
+    starting_directory = os.getcwd()
+    try:
+        os.chdir(os.path.abspath(os.path.expanduser(path)))
+        yield
+    finally:
+        os.chdir(starting_directory)
+
+
+
+
+
 def execute_with_running_output(command, env=None, out=None, line_prefix=''):
 
 
+    # print('execute_with_running_output: {} in {}'.format(command, env))
     # filter non string env vars
     if env:
         cmdenv = {k: v for k, v in env.items() if isinstance(v, six.string_types)}
@@ -126,24 +150,24 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
     exitCode = 0
 
     try:
-        # with given_dir(ctx['cmd_dir']):
-        if not out:
-            out = sys.stdout
-            subprocess.check_call(command, shell=True, env=cmdenv)
-        else:
-            p = subprocess.Popen(command, shell=True, env=cmdenv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-            output, err = p.communicate()
-            exitCode = p.returncode
-            out.write(output)
-            if exitCode != 0:
-                raise api.NodeExecutionFailed('command failed with status {}: {}'.format(exitCode, command))
+        with working_directory(env[api.CTX_VAR_SRC_DIR]):
+            if not out:
+                out = sys.stdout
+                subprocess.check_call(command, shell=True, env=cmdenv)
+            else:
+                p = subprocess.Popen(command, shell=True, env=cmdenv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+                output, err = p.communicate()
+                exitCode = p.returncode
+                out.write(output)
+                if exitCode != 0:
+                    raise api.NodeExecutionFailed('command failed with status {}: {}'.format(exitCode, command))
 
     except subprocess.CalledProcessError as e:
         out.write(e.output)
         out.flush()
         raise api.NodeExecutionFailed(e)
-    # except Exception as ae:
-    #     traceback.print_exc(file=out)
+    except Exception as ae:
+        traceback.print_exc(file=out)
 
 
     return exitCode

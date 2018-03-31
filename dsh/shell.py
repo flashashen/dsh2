@@ -66,10 +66,10 @@ class ProtoCompleter(Completer):
 
 
 def prompt_from_cmdnode(n):
-    if not '__DSH_CTX_PATH__' in n.context:
+    if not api.CTX_VAR_PATH in n.context:
         return n.name + '$ '
 
-    prompt = ".".join(n.context['__DSH_CTX_PATH__'])
+    prompt = ".".join(n.context[api.CTX_VAR_PATH])
     return prompt + '$ '
 
 

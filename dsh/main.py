@@ -1,6 +1,6 @@
 
 import os, yaml, six, copy
-from dsh import shell, node, evaluators, matchers
+from dsh import api, shell, node, evaluators, matchers
 from flange import cfg
 
 
@@ -13,6 +13,7 @@ def dsh_schema():
 
 
 DSH_FLANGE_PLUGIN = {'dshnode': {
+    'name': 'dshnode',
     'type': 'FLANGE.TYPE.PLUGIN',
     'schema': 'python://dsh/main.dsh_schema',
     'factory': 'python://dsh/main.node_dsh_context'
@@ -96,6 +97,8 @@ def __make_child_context(parent_ctx, data):
 
 def node_dsh_context(data, name=None, ctx={}):
 
+    # print 'node_dsh_context on ', data
+
     ns = data['ns'] if 'ns' in data else ''
 
     if name:
@@ -106,10 +109,10 @@ def node_dsh_context(data, name=None, ctx={}):
         rootCmd = node.node_root(name, __make_child_context(ctx, data))
 
     # maintain a tuple in the node context that keeps nested context names
-    if '__DSH_CTX_PATH__' in rootCmd.context and rootCmd.context['__DSH_CTX_PATH__']:
-        rootCmd.context['__DSH_CTX_PATH__'] = rootCmd.context['__DSH_CTX_PATH__'] + (name,)
+    if rootCmd.context and rootCmd.context.get(api.CTX_VAR_PATH):
+        rootCmd.context[api.CTX_VAR_PATH] = rootCmd.context[api.CTX_VAR_PATH] + (name,)
     else:
-        rootCmd.context['__DSH_CTX_PATH__'] = (name,)
+        rootCmd.context[api.CTX_VAR_PATH] = (name,)
 
     # Process the remaining keys
     for key, val in data.items():
@@ -174,50 +177,61 @@ def get_flange_cfg(
         root_ns='dsh2',
         base_dir=['.', '~'],
         file_patterns=['.cmd.yml'],
-        file_search_depth=2,
-        file_ns_from_dirname=False):
+        file_search_depth=2):
 
     data = {}
     data.update(DSH_FLANGE_PLUGIN)
     if options:
         data.update(options)
 
+
+
+    def update_source_root_path(dsh_root, src):
+
+        # print 'examining ', src
+        if not src.contents or not isinstance(src.contents, dict) or 'dsh' not in src.contents:
+            return
+
+        ns_separator = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
+
+        if not src.contents.get('ns'):
+            src.ns = dsh_root
+
+        elif src.contents.get('ns').startswith(dsh_root):
+            # if the dsh ns starts with the current root, then assume
+            # they're referring to the same ns and replace the separator
+            # so the segments will get unflattened in the merged data
+            src.ns = src.contents['ns'].replace('.', ns_separator)
+        else:
+            # just append the dsh ns
+            src.ns = dsh_root + ns_separator + src.contents.get('ns').replace('.', ns_separator)
+        # print 'setting {} ns from {} to {}'.format(src.uri, curent_root, src.ns)
+
+        # Add the .cmd.yml src location to the vars so context nodes can change cwd
+        src.contents['vars' + cfg.DEFAULT_UNFLATTEN_SEPARATOR + api.CTX_VAR_SRC_DIR] = os.path.dirname(src.uri)
+
+
+
     # get flange config. dont pass root_ns so that config that does not
     # contain the 'dsh' element will not fall under dsh root node. If it
     # did then there will more likely be invalid config
     f = cfg.Cfg(
         data=data,
+        root_path=None,
         include_os_env=False,
         file_patterns=file_patterns,
         file_exclude_patterns=[],
-        file_ns_from_dirname=file_ns_from_dirname,
         base_dir=base_dir,
         file_search_depth=file_search_depth,
-        merge=False,
-        research=False,
-        key_filter=None)
+        src_post_proc=lambda src: update_source_root_path(root_ns, src))
 
-    ns_separator = f.unflatten_separator + 'contexts' + f.unflatten_separator
+
     # massage source namespaces so the merged config lines up right in dsh
-    # '' -> root
-    # root -> root
-    # prj -> root__contexts__prj
-    # root.prj --> root__contexts__prj
-    for s in f.sources:
-        if s.contents and 'ns' in s.contents and 'dsh' in s.contents:
-            if not s.contents['ns'] or s.contents['ns'] == root_ns:
-                newns = root_ns
-            elif s.contents['ns'].startswith(root_ns):
-                newns = s.contents['ns'].replace('.', ns_separator)
-            else:
-                newns = root_ns + ns_separator + s.contents['ns'].replace('.', ns_separator)
-            # print 'setting {} ns from {} to {}'.format(s.uri, s.ns, newns)
-            s.ns = newns
 
     # f.merge_sources()
     # print 'a', sorted([s.ns for s in f.sources])
     # f.sources[0].ns = 'something  new...'
-    f.refresh(gather=False, merge=True, research=True)
+    # f.refresh(gather=False, merge=True, research=True)
     # f.sources[0].ns = 'something completely new...'
     # print 'b', sorted([s.ns for s in f.sources])
 
@@ -225,11 +239,11 @@ def get_flange_cfg(
 
 
 def run_from_flange(f, root_ns='dsh2'):
-    root = f.mget(root_ns, model='dshnode')
+    root = f.obj(root_ns, model='dshnode')
 
     if not root:
         print('No valid dsh configuration was found')
-        f.models.get('dshnode', raise_absent=True).validate(f.get(os.path.basename(os.getcwd())))
+        f.models['dshnode'].validator(root_ns)
         return 1
 
     shell.run(root, f)
