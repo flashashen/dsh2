@@ -90,7 +90,8 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
         for k in env:
             # for each env var, do recursive substitution
             try:
-               cmdenv[k] = api.__format(env[k], [argvars, env])
+                print('setting cmdenv[k] to {}'.format(api.__format(env[k], [argvars, env])))
+                cmdenv[k] = api.__format(env[k], [argvars, env])
             except:
                 pass
 
@@ -119,18 +120,18 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
 def working_directory(path):
     """
     Usage:
-    >>> with working_directory(prj_base):
+    >>> with working_directory('~/project_home'):
     ...   subprocess.call('project_script.sh')
     """
     if not path:
         yield
-
-    starting_directory = os.getcwd()
-    try:
-        os.chdir(os.path.abspath(os.path.expanduser(path)))
-        yield
-    finally:
-        os.chdir(starting_directory)
+    else:
+        starting_directory = os.getcwd()
+        try:
+            os.chdir(os.path.abspath(os.path.expanduser(path)))
+            yield
+        finally:
+            os.chdir(starting_directory)
 
 
 
@@ -150,7 +151,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
     exitCode = 0
 
     try:
-        with working_directory(env[api.CTX_VAR_SRC_DIR]):
+        with working_directory(env.get(api.CTX_VAR_SRC_DIR)):
             if not out:
                 out = sys.stdout
                 subprocess.check_call(command, shell=True, env=cmdenv)

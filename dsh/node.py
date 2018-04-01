@@ -315,7 +315,7 @@ class CmdNode(object):
 def get_children_method_dir_listing(dir='.'):
     import glob
     def dir_listing():
-        with given_dir(dir):
+        with executors.working_directory(dir):
             return [CmdNode(p) for p in glob.glob('*')]
     return dir_listing
 

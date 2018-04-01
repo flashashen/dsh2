@@ -195,16 +195,16 @@ def get_flange_cfg(
         ns_separator = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
 
         if not src.contents.get('ns'):
-            src.ns = dsh_root
+            src.root_path = dsh_root
 
         elif src.contents.get('ns').startswith(dsh_root):
             # if the dsh ns starts with the current root, then assume
             # they're referring to the same ns and replace the separator
             # so the segments will get unflattened in the merged data
-            src.ns = src.contents['ns'].replace('.', ns_separator)
+            src.root_path = src.contents['ns'].replace('.', ns_separator)
         else:
             # just append the dsh ns
-            src.ns = dsh_root + ns_separator + src.contents.get('ns').replace('.', ns_separator)
+            src.root_path = dsh_root + ns_separator + src.contents.get('ns').replace('.', ns_separator)
         # print 'setting {} ns from {} to {}'.format(src.uri, curent_root, src.ns)
 
         # Add the .cmd.yml src location to the vars so context nodes can change cwd

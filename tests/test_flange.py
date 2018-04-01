@@ -5,7 +5,7 @@ from flange import cfg
 
 FG = cfg.Cfg(
     data=main.DSH_FLANGE_PLUGIN,
-    root_ns='prj',
+    root_path='prj',
     file_patterns=['example.yml'],
     base_dir='.',
     file_search_depth=1)
@@ -28,14 +28,14 @@ def test_dsh_schema():
     jsonschema.validate(DSH_EXAMPLE, main.DSH_SCHEMA)
 
     # Then, check that flange discovers the example as in instance of the model
-    f = cfg.from_file('tests/example.yml', root_ns='root',)
-    f.register('dshnode', main.DSH_SCHEMA, )
-    assert f.mget('root', 'dshnode')
+    f = cfg.from_file('tests/example.yml', root_path='root',)
+    f.register_model_schema('dshnode', main.DSH_SCHEMA, main.node_dsh_context)
+    assert f.obj('root', model='dshnode')
 
 
 def test_config_model_registration():
     # The initial data contains the test plugin registation
-    cmdroot = FG.mget('prj')
+    cmdroot = FG.obj('prj')
 
     path = cmdroot.resolve('platform')
     assert path.match_result.completions == ['up', 'stop', 'ps', 'build']
@@ -46,14 +46,14 @@ def test_config_model_registration():
 
 def test_context_vars():
 
-    cmdroot = FG.mget('prj')
+    cmdroot = FG.obj('prj')
     prod = [x for x in cmdroot.get_children() if x.name == 'prod'][0]
 
 
 
 def test_nested_do():
 
-    cmdroot = FG.mget('prj')
+    cmdroot = FG.obj('prj')
     path = cmdroot.resolve('cmd_do_nested')
     path.execute()
     print(cmdroot)
@@ -61,7 +61,7 @@ def test_nested_do():
 
 # def test_context_cmd_do_after_simple():
 #
-#     cmdroot = FG.get('tests', 'dshnode')
+#     cmdroot = FG.get('tests', model='dshnode')
 #     path = cmdroot.resolve('platform build')
 #     path.execute()
 #     print cmdroot
@@ -72,12 +72,12 @@ def test_nested_do():
 #     from flange import cfg
 #     FG = cfg.Cfg(
 #         data=main.DSH_FLANGE_PLUGIN,
-#         root_ns='prj',
+#         root_path='prj',
 #         file_patterns=['.cmd.*'],
 #         base_dir='~/workspace',
 #         file_search_depth=3)
 #
-#     root = FG.mget('sire6')
+#     root = FG.obj('sire6')
 #     assert root
 #     assert root.resolve('platform ps').execute()
 #

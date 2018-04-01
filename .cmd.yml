@@ -1,5 +1,6 @@
 
 dsh: 2
+ns: flash.dsh2
 
 init: 
   - pip install -U pip setuptools wheel twine keyring

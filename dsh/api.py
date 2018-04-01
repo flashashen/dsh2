@@ -97,6 +97,7 @@ def __format(target, sources=[]):
                 for src in sources:
                     # If the matching key is found in the source, make the substitution
                     if src and m.group(1) in src:
+                        # print 'replacing {} with {}'.format(m.group(), src[m.group(1)])
                         target = target.replace(m.group(), src[m.group(1)])
                         replacements += 1
         if replacements == 0:
