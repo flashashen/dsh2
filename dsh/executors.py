@@ -1,6 +1,6 @@
 from __future__ import print_function
 import subprocess, sys, traceback, six, os, contextlib
-import api
+from dsh import api
 #
 #   Executor(context) methods.
 #
@@ -81,17 +81,19 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
         [argvars, env])
 
     if api.verbose(env):
-        print('execute_shell_cmd:  {}'.format(cmd_string))
+        print('execute_shell_cmd: {} against {}'.format(cmd_string, env))
 
 
-    cmdenv = api.__format_dict(os.environ.copy())
+    # cmdenv = api.format_dict([os.environ.copy()])
+    cmdenv = os.environ.copy()
 
     if env:
         for k in env:
             # for each env var, do recursive substitution
             try:
-                print('setting cmdenv[k] to {}'.format(api.__format(env[k], [argvars, env])))
-                cmdenv[k] = api.__format(env[k], [argvars, env])
+                cmdenv[k] = env[k]
+                # print('setting cmdenv[k] to {}'.format(api.__format(env[k], [argvars, env])))
+                # cmdenv[k] = api.__format(env[k], [argvars, env])
             except:
                 pass
 
@@ -151,7 +153,15 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
     exitCode = 0
 
     try:
-        with working_directory(env.get(api.CTX_VAR_SRC_DIR)):
+        if (env.get(api.CTX_VAR_WORK_DIR)) and not os.path.join(env.get(api.CTX_VAR_SRC_DIR).endswith(env.get(api.CTX_VAR_WORK_DIR))):
+            # if work directory is absolute, then os.path.join will take it as the path and ignore the src dir.
+            # Otherwise the paths will be joined into one. For this reason, no check for absolute path is required.
+            workdir = os.path.join(env.get(api.CTX_VAR_SRC_DIR), env.get(api.CTX_VAR_WORK_DIR))
+        else:
+            workdir = env.get(api.CTX_VAR_SRC_DIR)
+
+
+        with working_directory(workdir):
             if not out:
                 out = sys.stdout
                 subprocess.check_call(command, shell=True, env=cmdenv)
@@ -159,13 +169,14 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
                 p = subprocess.Popen(command, shell=True, env=cmdenv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
                 output, err = p.communicate()
                 exitCode = p.returncode
-                out.write(output)
+                if output:
+                    out.write(output)
                 if exitCode != 0:
                     raise api.NodeExecutionFailed('command failed with status {}: {}'.format(exitCode, command))
 
     except subprocess.CalledProcessError as e:
-        out.write(e.output)
-        out.flush()
+        # out.write(e.output)
+        # out.flush()
         raise api.NodeExecutionFailed(e)
     except Exception as ae:
         traceback.print_exc(file=out)

@@ -10,7 +10,7 @@ allOf:
   - type: object
     properties:
       dsh:
-        $ref: "#/definitions/dsh"
+        $ref: "#/definitions/dsh_versions"
 #      include:
 #        $ref: "#/definitions/type_include"
     required:
@@ -22,16 +22,16 @@ definitions:
 
     dsh_versions: { "enum": [2] }
 
-    dsh:
-      oneOf:
-        - $ref: "#/definitions/dsh_versions"
-        - type: object
-          properties:
-              # namespace of this context. 'apps.app' resolves to dsh command 'dsh>apps app'
-              ns:
-                type: string
-              version:
-                $ref: "#/definitions/dsh_versions"
+#    dsh:
+#      oneOf:
+#        - $ref: "#/definitions/dsh_versions"
+#        - type: object
+#          properties:
+#              # namespace of this context. 'apps.app' resolves to dsh command 'dsh>apps app'
+#              ns:
+#                type: string
+#              version:
+#                $ref: "#/definitions/dsh_versions"
 
 
 

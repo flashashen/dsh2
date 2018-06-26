@@ -2,8 +2,21 @@
 dsh: 2
 ns: flash.dsh2
 
-init: 
-  - pip install -U pip setuptools wheel twine keyring
+#vars:
+#  CMDS_COMMON: &CMDS_COMMON
+#    test:
+#      - tox
+#
+#    install:
+#      - pip install -e .
+#
+#    release:
+#      - tox -r
+#      - rm -rf build
+#      - rm -rf dist
+#      - python setup.py sdist bdist_wheel
+#      - twine upload -r pypi dist/flange*
+
 
 test:
   - tox
@@ -11,10 +24,15 @@ test:
 install:
   - pip install -e .
 
-package:
+build:
   - rm -rf build
   - rm -rf dist
   - python setup.py sdist bdist_wheel
+  - ls -l dist
 
-publish:
-  - twine upload -r pypi dist/dsh*
+release:
+  - tox -r
+  - rm -rf build
+  - rm -rf dist
+  - python setup.py sdist bdist_wheel
+  - twine upload -r pypi dist/dsh2*

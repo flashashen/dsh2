@@ -1,8 +1,5 @@
 import random, string, six, os, traceback, sys, shlex, os
-import api
-import matchers
-import executors
-import evaluators
+from dsh import api, matchers, executors, evaluators
 
 
 
@@ -185,6 +182,7 @@ class CmdNode(object):
         self.evaluate = method_evaluate if method_evaluate else evaluators.choose_one_child
         self.initial_status = initial_status
 
+
         if child_get_func:
             self.get_children = child_get_func
         else:
@@ -192,6 +190,8 @@ class CmdNode(object):
             self.__children = children
             self.get_children = lambda: children
 
+        # dynamic assignment is being difficult. make regular var for now
+        self.flange = None
 
 
 

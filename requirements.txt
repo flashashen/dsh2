@@ -1,6 +1,4 @@
 anyconfig==0.9.3
-flange==0.0.4
-jsonschema==2.6.0
+flange==0.0.8
 prompt-toolkit==1.0.15
-PyYAML==3.12
-six==1.11.0
+

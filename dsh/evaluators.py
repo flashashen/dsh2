@@ -1,4 +1,4 @@
-from api import *
+from dsh import api
 from collections import defaultdict
 
 
@@ -7,7 +7,7 @@ from collections import defaultdict
 def no_children(children):
     if children:
         raise ValueError('This evaluation method is not valid for nodes with children')
-    return STATUS_COMPLETED
+    return api.STATUS_COMPLETED
 
 
 
@@ -20,21 +20,21 @@ def require_all_children(statuses):
     :return: node status based on status of children
     """
     if not statuses:
-        return STATUS_COMPLETED
+        return api.STATUS_COMPLETED
 
     status_counts = __count_statuses(statuses )
 
-    if status_counts[STATUS_EXCEEDED] > 0:
+    if status_counts[api.STATUS_EXCEEDED] > 0:
         # Don't propogate as exceeded. The parent of an exceeded child will
         # just be un-satisfied since the parent itself is not really exceeded.
-        return STATUS_UNSATISFIED
-    elif status_counts[STATUS_UNSATISFIED] > 0:
-        return STATUS_UNSATISFIED
-    elif status_counts[STATUS_COMPLETED] == len(statuses):
-        return STATUS_COMPLETED
+        return api.STATUS_UNSATISFIED
+    elif status_counts[api.STATUS_UNSATISFIED] > 0:
+        return api.STATUS_UNSATISFIED
+    elif status_counts[api.STATUS_COMPLETED] == len(statuses):
+        return api.STATUS_COMPLETED
     else:
         # All are satisfied, but not all completed.
-        return STATUS_SATISFIED
+        return api.STATUS_SATISFIED
 
 
 
@@ -48,18 +48,18 @@ def choose_one_child(statuses):
     :return: node status based on status of children
     """
     if not statuses:
-        return STATUS_COMPLETED
+        return api.STATUS_COMPLETED
 
     status_counts = __count_statuses(statuses)
 
-    if (status_counts[STATUS_COMPLETED] + status_counts[STATUS_SATISFIED]) > 1:
-        return STATUS_EXCEEDED
-    elif status_counts[STATUS_SATISFIED] == 1:
-        return STATUS_SATISFIED
-    elif status_counts[STATUS_COMPLETED] == 1:
-        return STATUS_COMPLETED
+    if (status_counts[api.STATUS_COMPLETED] + status_counts[api.STATUS_SATISFIED]) > 1:
+        return api.STATUS_EXCEEDED
+    elif status_counts[api.STATUS_SATISFIED] == 1:
+        return api.STATUS_SATISFIED
+    elif status_counts[api.STATUS_COMPLETED] == 1:
+        return api.STATUS_COMPLETED
     else:
-        return STATUS_UNSATISFIED
+        return api.STATUS_UNSATISFIED
 
 
 def children_as_options(statuses):
@@ -72,16 +72,16 @@ def children_as_options(statuses):
     :return: node status based on status of children
     """
     if not statuses:
-        return STATUS_COMPLETED
+        return api.STATUS_COMPLETED
 
     status_counts = __count_statuses(statuses)
 
-    if status_counts[STATUS_EXCEEDED]:
-        return STATUS_UNSATISFIED
-    elif status_counts[STATUS_COMPLETED] == len(statuses):
-        return STATUS_COMPLETED
+    if status_counts[api.STATUS_EXCEEDED]:
+        return api.STATUS_UNSATISFIED
+    elif status_counts[api.STATUS_COMPLETED] == len(statuses):
+        return api.STATUS_COMPLETED
     else:
-        return STATUS_SATISFIED
+        return api.STATUS_SATISFIED
 
 
 

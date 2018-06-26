@@ -1,4 +1,5 @@
 import six, shlex
+import dpath
 
 UNEVALUATED = 'UNEVALUATED'
 
@@ -21,6 +22,8 @@ NODE_ANONYMOUS_PREFIX = '_ANON_'
 
 CTX_VAR_PATH =      '_DSH_CTX_PATH'
 CTX_VAR_SRC_DIR =   '_DSH_CTX_SRC_DIR'
+CTX_VAR_WORK_DIR =   '_DSH_CTX_WORK_DIR'
+CTX_VAR_FLANGE =   '_DSH_CTX_FLANGE'
 
 #
 #   Exceptions
@@ -79,40 +82,123 @@ def verbose(ctx):
 #   Var substitutions
 #
 #
-import re
-VAR_FORMAT_PATTERN = re.compile(r'{{(\w*)}}')
+# import re
+# VAR_FORMAT_PATTERN = re.compile(r'{{(\w+(.\w*)*)}}')
+
+
+def __get_sub(target, sources):
+    for src in sources:
+        try:
+            if not src or not isinstance(src, dict):
+                continue
+
+            val = None
+            if '.' in target:
+                # pass
+                try:
+                    val = dpath.get(src, target.replace('.', '/'))
+                except:
+                    pass
+            else:
+                val = src.get(target)
+
+            if val:
+                # print 'format group: {}, src: {}'.format(m.group(), src)
+                if not isinstance(val, six.string_types):
+                    raise ValueError("Substitution target is not a string type: '{}' is a {}".format(target, type(val)))
+
+                return val
+        except:
+            raise
+
+
+def __find_vars(s):
+
+    state = 0
+    vars = []
+    pos_start = 0
+    counter = 0
+
+
+    STATE_WAIT_OPEN = 0
+    STATE_OPENING = 1
+    STATE_CLOSING = 2
+
+    for i in range(len(s)):
+        c = s[i]
+
+        # print 'state: {}. pos: {}. char: {}'.format(state, i, c)
+        if state == STATE_WAIT_OPEN:
+            # waiting for first opening bracket
+            if c == '{':
+                pos_start = i
+                # count open brackets
+                counter = 1
+                state = STATE_OPENING
+
+        elif state == STATE_OPENING:
+            if c == '{':
+                counter += 1
+                pos_start = i-1
+            else:
+                if counter >= 2:
+                    state = STATE_CLOSING
+                    counter = 1 if c == "}" else 0
+                else:
+                    state = STATE_WAIT_OPEN
+
+        elif state == STATE_CLOSING:
+            if c == '{' and s[i-1] == '{':
+                # a nested var has been found
+                state == STATE_OPENING
+                counter = 2
+                pos_start = i-1
+            elif c == '}':
+                counter +=1
+                if counter >= 2:
+                    vars.append((s[pos_start+2:i-1], pos_start, i+1))
+                    state = STATE_WAIT_OPEN
+            else:
+                # reset the counter but stay here looking for closing bracket
+                counter = 0
+
+    return vars
+
+
+
 
 
 def __format(target, sources=[]):
 
-    # do the replacements of {{var}} style vars.
-    #   m.group()  ->  {{var}}
-    #   m.group(1) ->  var
-    #
     while True:
         replacements = 0
-        varmatches = re.finditer(VAR_FORMAT_PATTERN, target)
+        varmatches = __find_vars(target)
         if varmatches:
             for m in varmatches:
-                for src in sources:
-                    # If the matching key is found in the source, make the substitution
-                    if src and m.group(1) in src:
-                        # print 'replacing {} with {}'.format(m.group(), src[m.group(1)])
-                        target = target.replace(m.group(), src[m.group(1)])
-                        replacements += 1
+                sub = __get_sub(m[0], sources)
+                if not sub:
+                    print("Substitution not found for {:20} in: {}".format(m[0], target))
+                else:
+                    target = target.replace('{{' + m[0] + '}}', sub)
+                    replacements += 1
+
+        # When nothing more can be replaced, exit.
         if replacements == 0:
             break
 
     return target
 
 
-def __format_dict(env, argvars={}):
+def format_dict(env, argvars={}):
     subsenv = {}
     if env:
         for k in env:
             # for each env var, do recursive substitution
             try:
-                subsenv[k] = __format(env[k], [argvars, env])
+                if isinstance(env[k], dict):
+                    subsenv[k] = format_dict(env[k])
+                else:
+                    subsenv[k] = __format(env[k], [argvars, env])
             except:
                 pass
     return subsenv

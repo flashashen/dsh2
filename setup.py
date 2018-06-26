@@ -34,7 +34,7 @@ setup(
     test_suite="nose.collector",
     install_requires=[
         'flange',
-        'prompt_toolkit',
+        'prompt_toolkit >1.0, !=1.5.1, <2.0',
         'six',
 
     ],

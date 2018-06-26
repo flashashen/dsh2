@@ -1,6 +1,6 @@
 import jsonschema, yaml
 from context import *
-from flange import cfg
+from flange import cfg, model as flmd
 
 
 FG = cfg.Cfg(
@@ -29,7 +29,7 @@ def test_dsh_schema():
 
     # Then, check that flange discovers the example as in instance of the model
     f = cfg.from_file('tests/example.yml', root_path='root',)
-    f.register_model_schema('dshnode', main.DSH_SCHEMA, main.node_dsh_context)
+    f.register_model('dshnode', flmd.Model('dshnode', flmd.Model.get_schema_validator(main.DSH_SCHEMA), main.node_dsh_context))
     assert f.obj('root', model='dshnode')
 
 

@@ -16,10 +16,12 @@ DSH_FLANGE_PLUGIN = {'dshnode': {
     'name': 'dshnode',
     'type': 'FLANGE.TYPE.PLUGIN',
     'schema': 'python://dsh/main.dsh_schema',
-    'factory': 'python://dsh/main.node_dsh_context'
+    'factory': 'python://dsh/main.node_dsh_context',
+    'inject': 'flange'
 }}
 
 
+ns_separator = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
 
 
 
@@ -157,7 +159,8 @@ def execute_context(snode, match_result, child_results):
         cnode = node.node_root(snode.name, snode.context)
         for child in snode.get_children():
             cnode.add_child(child)
-        return shell.run(cnode)
+            cnode.flange = snode.flange
+        return shell.DevShell(cnode).run()
 
     # If there are children that returned a result, then just pass those on.
     # In this case this node is acting as a container
@@ -176,7 +179,7 @@ def get_flange_cfg(
         options=None,
         root_ns='dsh2',
         base_dir=['.', '~'],
-        file_patterns=['.cmd.yml'],
+        file_patterns=['.cmd*.yml'],
         file_search_depth=2):
 
     data = {}
@@ -185,22 +188,19 @@ def get_flange_cfg(
         data.update(options)
 
 
-
     def update_source_root_path(dsh_root, src):
 
         # print 'examining ', src
         if not src.contents or not isinstance(src.contents, dict) or 'dsh' not in src.contents:
             return
 
-        ns_separator = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
 
         if not src.contents.get('ns'):
-            src.root_path = dsh_root
+            src.root_path = ''
 
         elif src.contents.get('ns').startswith(dsh_root):
             # if the dsh ns starts with the current root, then assume
-            # they're referring to the same ns and replace the separator
-            # so the segments will get unflattened in the merged data
+            # they're referring to the same ns. Just replace separator
             src.root_path = src.contents['ns'].replace('.', ns_separator)
         else:
             # just append the dsh ns
@@ -215,7 +215,7 @@ def get_flange_cfg(
     # get flange config. dont pass root_ns so that config that does not
     # contain the 'dsh' element will not fall under dsh root node. If it
     # did then there will more likely be invalid config
-    f = cfg.Cfg(
+    fcfg = cfg.Cfg(
         data=data,
         root_path=None,
         include_os_env=False,
@@ -226,27 +226,26 @@ def get_flange_cfg(
         src_post_proc=lambda src: update_source_root_path(root_ns, src))
 
 
-    # massage source namespaces so the merged config lines up right in dsh
+    # Dump src info and set namespaces from data
+    print('\nsources:                                                     ns:')
+    for src in [f for f in fcfg.sources if f.uri != 'init_data']:
+        print("{0:60.65} {1:20} {2}".format(
+            str(src.uri),
+            str(src.root_path).replace(ns_separator, '.') if src.root_path else '',
+            '\nerror: ' + str(src.error) if src.error else ''))
+    print('\n')
 
-    # f.merge_sources()
-    # print 'a', sorted([s.ns for s in f.sources])
-    # f.sources[0].ns = 'something  new...'
-    # f.refresh(gather=False, merge=True, research=True)
-    # f.sources[0].ns = 'something completely new...'
-    # print 'b', sorted([s.ns for s in f.sources])
-
-    return f
+    return fcfg
 
 
-def run_from_flange(f, root_ns='dsh2'):
-    root = f.obj(root_ns, model='dshnode')
 
-    if not root:
-        print('No valid dsh configuration was found')
-        f.models['dshnode'].validator(root_ns)
-        return 1
+def set_flange(n, f):
+    n.flange = f
+    children = n.get_children()
+    for i in range(len(children)):
+        # print 'setting flange to ', hex(id(child))
+        set_flange(children[i], f)
 
-    shell.run(root, f)
 
 #
 # import click
@@ -256,13 +255,15 @@ def run_from_flange(f, root_ns='dsh2'):
 # @click.pass_context
 # def main(ctx, verbose):
 def run(options=None,
-        base_dir=['.', '~'],
-        file_patterns=['.cmd.yml'],
+        base_dir=['~', '.'],
+        file_patterns=['.cmd*.yml'],
         file_search_depth=2):
 
     options = {
         # api.DSH_VERBOSE: verbose
     }
+
+    root_ns = 'dsh2'
 
     f = get_flange_cfg(
         options=options,
@@ -270,7 +271,20 @@ def run(options=None,
         file_patterns=file_patterns,
         file_search_depth=file_search_depth)
 
-    run_from_flange(f)
+
+    roots = f.objs(root_ns, model='dshnode')
+
+    if not roots:
+        print('No valid dsh configuration was found')
+        f.models['dshnode'].validator(root_ns)
+        return 1
+
+    # kludge - give all the cmd children the flange obj in case it's needed
+    set_flange(roots[0], f)
+
+    # print(roots[0].flange)
+    dsh = shell.DevShell(roots[0])
+    dsh.run()
 
     # print FG.info()
     # import json
