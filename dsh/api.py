@@ -87,29 +87,24 @@ def verbose(ctx):
 
 
 def __get_sub(target, sources):
+    # print('get sub on {}'.format(target))
     for src in sources:
+        if not src or not isinstance(src, dict):
+            continue
+
+        val = None
         try:
-            if not src or not isinstance(src, dict):
-                continue
-
-            val = None
-            if '.' in target:
-                # pass
-                try:
-                    val = dpath.get(src, target.replace('.', '/'))
-                except:
-                    pass
-            else:
-                val = src.get(target)
-
-            if val:
-                # print 'format group: {}, src: {}'.format(m.group(), src)
-                if not isinstance(val, six.string_types):
-                    raise ValueError("Substitution target is not a string type: '{}' is a {}".format(target, type(val)))
-
-                return val
+            val = dpath.get(src, target.replace('.', '/'))
         except:
-            raise
+            pass
+
+        if val:
+            # print 'format group: {}, src: {}'.format(m.group(), src)
+            if not isinstance(val, six.string_types):
+                raise ValueError("Substitution target is not a string type: '{}' is a {}".format(target, type(val)))
+
+            return val
+
 
 
 def __find_vars(s):
@@ -177,8 +172,9 @@ def __format(target, sources=[]):
             for m in varmatches:
                 sub = __get_sub(m[0], sources)
                 if not sub:
-                    print("Substitution not found for {:20} in: {}".format(m[0], target))
+                    pass # print("Substitution not found for {:20} in: {}".format(m[0], target))
                 else:
+                    # print('replacing {} with {}'.format(m[0], sub))
                     target = target.replace('{{' + m[0] + '}}', sub)
                     replacements += 1
 
@@ -193,11 +189,13 @@ def format_dict(env, argvars={}):
     subsenv = {}
     if env:
         for k in env:
+            # print('formatting key {}'.format(k))
             # for each env var, do recursive substitution
             try:
                 if isinstance(env[k], dict):
                     subsenv[k] = format_dict(env[k])
                 else:
+                    # print('formatting string {}'.format(env[k]))
                     subsenv[k] = __format(env[k], [argvars, env])
             except:
                 pass

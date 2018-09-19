@@ -87,15 +87,17 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
     # cmdenv = api.format_dict([os.environ.copy()])
     cmdenv = os.environ.copy()
 
-    if env:
-        for k in env:
-            # for each env var, do recursive substitution
-            try:
-                cmdenv[k] = env[k]
-                # print('setting cmdenv[k] to {}'.format(api.__format(env[k], [argvars, env])))
-                # cmdenv[k] = api.__format(env[k], [argvars, env])
-            except:
-                pass
+    cmdenv.update(api.format_dict(env, argvars))
+
+    # if env:
+    #     for k in env:
+    #         # for each env var, do recursive substitution
+    #         try:
+    #             # cmdenv[k] = env[k]
+    #             # print('setting cmdenv[k] to {}'.format(api.__format(env[k], [argvars, env])))
+    #             cmdenv[k] = api.__format(env[k], [argvars, env])
+    #         except:
+    #             pass
 
     # return the output
     if return_output:
