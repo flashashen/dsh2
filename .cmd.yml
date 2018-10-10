@@ -2,21 +2,14 @@
 dsh: 2
 ns: flash.dsh2
 
-#vars:
-#  CMDS_COMMON: &CMDS_COMMON
-#    test:
-#      - tox
-#
-#    install:
-#      - pip install -e .
-#
-#    release:
-#      - tox -r
-#      - rm -rf build
-#      - rm -rf dist
-#      - python setup.py sdist bdist_wheel
-#      - twine upload -r pypi dist/flange*
+vars:
+  app_name: dsh2
 
+
+init:
+  - curl https://bootstrap.pypa.io/get-pip.py | python
+  - pip install -U pip setuptools wheel twine keyring pypandoc tox
+#  - python -c "from pypandoc.pandoc_download import download_pandoc; download_pandoc()"
 
 test:
   - tox
@@ -24,15 +17,13 @@ test:
 install:
   - pip install -e .
 
-build:
+package:
   - rm -rf build
   - rm -rf dist
+  - pandoc -o README.rst README.md
   - python setup.py sdist bdist_wheel
-  - ls -l dist
+  - rm README.rst
 
-release:
+publish:
   - tox -r
-  - rm -rf build
-  - rm -rf dist
-  - python setup.py sdist bdist_wheel
-  - twine upload -r pypi dist/dsh2*
+  - twine upload -r pypi -u flashashen dist/{{app_name}}*

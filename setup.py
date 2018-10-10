@@ -8,7 +8,7 @@ readme.close()
 
 setup(
     name='dsh2',
-    version='2.0.3',
+    version='2.0.4',
     author='flashashen',
     author_email='flashashen@gmail.com',
     description='console application to organize commands and environments',
