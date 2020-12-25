@@ -14,7 +14,7 @@ FG = cfg.Cfg(
 import os
 PATH_EXAMPLE = os.path.join(os.path.dirname(__file__), 'example.yml')
 with open(PATH_EXAMPLE) as f:
-    DSH_EXAMPLE = yaml.load(f)
+    DSH_EXAMPLE = yaml.safe_load(f)
 
 
 MODULE_NAME = __name__.replace('.', '/')
@@ -59,13 +59,19 @@ def test_nested_do():
     print(cmdroot)
 
 
+
+def test_on_failure():
+    cmdroot = FG.obj('prj')
+    cmdroot.resolve('platform build', 'MODE_EXECUTE').execute()
+
+
 # def test_context_cmd_do_after_simple():
 #
-#     cmdroot = FG.get('tests', model='dshnode')
+#     cmdroot = FG.obj('tests', model='dshnode')
 #     path = cmdroot.resolve('platform build')
 #     path.execute()
 #     print cmdroot
-
+#
 
 # def test_main():
 #

@@ -177,7 +177,7 @@ class CmdNode(object):
         self.name = name if name else api.NODE_ANONYMOUS_PREFIX + ''.join([random.choice(string.ascii_letters+string.digits) for n in range(8)])
         self.context = context if context else {}
         self.usage = usage
-        self.execute = method_execute if method_execute else executors.get_executor_noop()
+        self.execute = method_execute if method_execute else executors.get_executor_return_child_results()
         self.match = method_match if method_match else matchers.get_matcher_exact_string(name)
         self.evaluate = method_evaluate if method_evaluate else evaluators.choose_one_child
         self.initial_status = initial_status
@@ -278,15 +278,19 @@ class CmdNode(object):
         """
 
         def wrapped(exe, failure_node, match_result, child_results):
+            failed = False
             try:
                 print('executing wrapped exe..')
-                return exe(match_result, child_results)
+                failed = (exe(match_result, child_results) != 0)
             except Exception as e:
                 print('exe failed. resolving and executing failure node')
                 # use module execute method which will resolve against empty input and execute
-                return execute(failure_node)
+                failed = True
                 # re-raise the original
                 # raise e
+
+            if failed:
+                return execute(failure_node)
 
         old_exe = self.execute
         self.execute = lambda match_result, child_results: wrapped(old_exe, on_failure_node, match_result, child_results)

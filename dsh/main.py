@@ -6,7 +6,7 @@ from flange import cfg
 
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/schema.yml')) as f:
-    DSH_SCHEMA = yaml.load(f)
+    DSH_SCHEMA = yaml.safe_load(f)
 
 def dsh_schema():
     return DSH_SCHEMA
@@ -78,7 +78,8 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
             root = node.node_display_message(key, str(e))
 
         if 'on_failure' in val:
-            cn.on_failure(node_dsh_cmd(
+            print('adding failure node exe wrapper. cmd = {}'.format(val['on_failure']))
+            root.on_failure(node_dsh_cmd(
                 key+'_on_failure',
                 val['on_failure'],
                 ctx=newctx))

@@ -11,8 +11,24 @@ dsh: 2
 ns: root.subcmd
 
 
+
+#
+#   Vars
+#
 vars:
+
+  # Dump any object into a var
+  pcmds: &pcmds
+    echohost: echo {{host}}
+    up: invcommand platform build  cfg edit docker stack deploy -c platform/docker-compose.yml *platform_stack_name
+    stop: docker stack remove *platform_stack_name
+    build: docker-compose -f platform/docker-compose.yml build
+    ps: docker stack ps *platform_stack_name
+
+  # string var. contents of {{ }} are evaluated by dsh
+  flange_sourced_var: "{{ flange mget some_flange_model_key }}"
   varcmdstr: echo this echo command was given by a var
+
 
 #
 #   Commands
@@ -48,23 +64,6 @@ commands:
   cmd1: 'echo this is another way to specify commands in a context'
   cmd2: "the 'commands' element can receive the contents of a variable. see below"
 
-
-
-#
-#   Vars
-#
-vars:
-
-  # Dump any object into a var
-  pcmds: &pcmds
-      echohost: echo {{host}}
-      up: invcommand platform build  cfg edit docker stack deploy -c platform/docker-compose.yml *platform_stack_name
-      stop: docker stack remove *platform_stack_name
-      build: docker-compose -f platform/docker-compose.yml build
-      ps: docker stack ps *platform_stack_name
-
-  # string var. contents of {{ }} are evaluated by dsh
-  flange_sourced_var: "{{ flange mget some_flange_model_key }}"
 
 
 
@@ -103,7 +102,7 @@ contexts:
     build:
       help: some help text
       do:
-        - echo build task1
+        - echo {somevar}} build task1
         - echo build task2
       on_failure:
         - echo failed

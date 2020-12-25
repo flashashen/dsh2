@@ -60,9 +60,9 @@ def get_executor_shell_cmd(name, command, return_output=True, ctx=None):
 
     return lambda match_result, child_results: execute_shell_cmd(
         command,
-        match_result.matched_input()[1:]
-            if match_result.matched_input() and name == match_result.matched_input()[0]
-            else match_result.matched_input()[:],
+            match_result.matched_input()[1:]
+                if match_result.matched_input() and name == match_result.matched_input()[0] else
+            match_result.matched_input()[:],
         match_result.input_remainder(),
         child_results,
         ctx,
@@ -84,9 +84,7 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
         print('execute_shell_cmd: {} against {}'.format(cmd_string, env))
 
 
-    # cmdenv = api.format_dict([os.environ.copy()])
     cmdenv = os.environ.copy()
-
     cmdenv.update(api.format_dict(env, argvars))
 
     # if env:
@@ -145,6 +143,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
 
 
     # print('execute_with_running_output: {} in {}'.format(command, env))
+
     # filter non string env vars
     if env:
         cmdenv = {k: v for k, v in env.items() if isinstance(v, six.string_types)}
@@ -152,10 +151,10 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
         cmdenv = {}
 
 
-    exitCode = 0
+    exitCode = 1
 
     try:
-        if (env.get(api.CTX_VAR_WORK_DIR)) and not os.path.join(env.get(api.CTX_VAR_SRC_DIR).endswith(env.get(api.CTX_VAR_WORK_DIR))):
+        if (env.get(api.CTX_VAR_WORK_DIR)) and not env.get(api.CTX_VAR_SRC_DIR).endswith(env.get(api.CTX_VAR_WORK_DIR)):
             # if work directory is absolute, then os.path.join will take it as the path and ignore the src dir.
             # Otherwise the paths will be joined into one. For this reason, no check for absolute path is required.
             workdir = os.path.join(env.get(api.CTX_VAR_SRC_DIR), env.get(api.CTX_VAR_WORK_DIR))
