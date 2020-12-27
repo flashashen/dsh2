@@ -190,11 +190,16 @@ def get_flange_cfg(
 
 
     def update_source_root_path(dsh_root, src):
+        '''
+        set the root path which locates this source in the larger config/data.
 
-        # print 'examining ', src
+        :param dsh_root: 'location' of dsh config in the flange data
+        :param src: flange source object
+        :return: None
+        '''
+
         if not src.contents or not isinstance(src.contents, dict) or 'dsh' not in src.contents:
             return
-
 
         if not src.contents.get('ns'):
             src.root_path = ''
@@ -203,6 +208,7 @@ def get_flange_cfg(
             # if the dsh ns starts with the current root, then assume
             # they're referring to the same ns. Just replace separator
             src.root_path = src.contents['ns'].replace('.', ns_separator)
+
         else:
             # just append the dsh ns
             src.root_path = dsh_root + ns_separator + src.contents.get('ns').replace('.', ns_separator)
