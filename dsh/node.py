@@ -1,4 +1,4 @@
-import random, string, six, os, traceback, sys, shlex, os
+import random, string, os, traceback, sys, shlex, os
 from dsh import api, matchers, executors, evaluators
 
 
@@ -66,7 +66,7 @@ def node_argument(name, choices=None):
 def get_nodes_from_choices(nodes):
     children = []
 
-    if isinstance(nodes, six.string_types):
+    if isinstance(nodes, str):
         nodes = nodes.split()
     for node in nodes:
         children.append(node if isinstance(node, CmdNode) else node_string(node))
@@ -117,7 +117,6 @@ def node_root(name='root', ctx=None):
 
 def node_shell_command(name, command, return_output=True, ctx=None):
 
-    # repeat the test with variable substitution in the command string
     n = CmdNode(name, context=ctx)
     n.execute = executors.get_executor_shell_cmd(name, command, return_output, ctx=ctx)
     return n
@@ -125,10 +124,9 @@ def node_shell_command(name, command, return_output=True, ctx=None):
 
 def node_display_message(name, message):
 
-    # repeat the test with variable substitution in the command string
     n = CmdNode(name)
     n.execute = executors.get_executor_shell_cmd(
-        name, "echo 'invalid command. maybe was supposed to be a context'" , return_output=True)
+        name, f"echo '{message}'", return_output=True)
     return n
 
 
@@ -260,7 +258,7 @@ class CmdNode(object):
     def options(self, options):
 
         for opt in options:
-            if not isinstance(opt, six.string_types):
+            if not isinstance(opt, str):
                 raise ValueError('options must be strings. got {}'.format(type(opt)))
             self.add_child(node_option(opt))
         return self
@@ -300,7 +298,7 @@ class CmdNode(object):
 
     def resolve(self, matched_input, input_mode=api.MODE_COMPLETE):
         path = ResolutionPath(self)
-        if matched_input and isinstance(matched_input, six.string_types):
+        if matched_input and isinstance(matched_input, str):
             try:
                 matched_input = shlex.split(matched_input)
             except ValueError as e:
@@ -350,6 +348,7 @@ class ResolutionPath:
     @staticmethod
     def resolve(path, input_segments, start_index=0, input_mode=api.MODE_COMPLETE):
 
+        # print('{} resolve called on {} {} {}'.format(input_mode, path, '|'.join(input_segments), start_index))
         path.match_result = path.cmd_node.match(input_segments, start_index)
         if path.match_result.status not in [api.MATCH_FULL]:
             return

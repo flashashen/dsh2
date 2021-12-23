@@ -8,7 +8,7 @@ readme.close()
 
 setup(
     name='dsh2',
-    version='2.0.4',
+    version='2.2.0',
     author='flashashen',
     author_email='flashashen@gmail.com',
     description='console application to organize commands and environments',
@@ -16,8 +16,12 @@ setup(
     url="https://github.com/flashashen/dsh2",
     classifiers= [
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Topic :: Software Development',
         'Environment :: Console',
         'Operating System :: MacOS',
@@ -26,20 +30,20 @@ setup(
 
     ],
     platforms='osx,linux',
-    keywords = "shell console yaml",
+    keywords="shell console yaml",
     long_description=README_TEXT,
     packages=['dsh'],
     package_data={'dsh': ['data/*']},
-    tests_require = ['nose','jsonschema'],
-    test_suite="nose.collector",
+    tests_require=['nose', 'jsonschema'],
+    test_suite="tests",
     install_requires=[
-        'flange',
+        'flange>=1.0.0',
         'prompt_toolkit >3.0',
-        'six',
-
+        'pygments',
+        'Click'
     ],
     entry_points='''
         [console_scripts]
-        dsh2=dsh.main:main
+        dsh=dsh.main:cli
     ''',
 )

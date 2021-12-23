@@ -1,5 +1,5 @@
 from __future__ import print_function
-import subprocess, sys, traceback, six, os, contextlib
+import subprocess, sys, traceback, os, contextlib
 from dsh import api
 #
 #   Executor(context) methods.
@@ -55,7 +55,7 @@ def get_executor_shell_cmd(name, command, return_output=True, ctx=None):
     """
    Return an executor(context) method that executes a shell command
    :param command:  command to be given to default system shell
-   :return: executor method. closure on execute_with_running_output(command, ctx)
+   :return: executor method
    """
 
     return lambda match_result, child_results: execute_shell_cmd(
@@ -83,19 +83,8 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
     if api.verbose(env):
         print('execute_shell_cmd: {} against {}'.format(cmd_string, env))
 
-
     cmdenv = os.environ.copy()
     cmdenv.update(api.format_dict(env, argvars))
-
-    # if env:
-    #     for k in env:
-    #         # for each env var, do recursive substitution
-    #         try:
-    #             # cmdenv[k] = env[k]
-    #             # print('setting cmdenv[k] to {}'.format(api.__format(env[k], [argvars, env])))
-    #             cmdenv[k] = api.__format(env[k], [argvars, env])
-    #         except:
-    #             pass
 
     # return the output
     if return_output:
@@ -146,7 +135,7 @@ def execute_with_running_output(command, env=None, out=None, line_prefix=''):
 
     # filter non string env vars
     if env:
-        cmdenv = {k: v for k, v in env.items() if isinstance(v, six.string_types)}
+        cmdenv = {k: v for k, v in env.items() if isinstance(v, str)}
     else:
         cmdenv = {}
 

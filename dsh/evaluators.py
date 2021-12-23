@@ -25,7 +25,7 @@ def require_all_children(statuses):
     status_counts = __count_statuses(statuses )
 
     if status_counts[api.STATUS_EXCEEDED] > 0:
-        # Don't propogate as exceeded. The parent of an exceeded child will
+        # Don't propagate as exceeded. The parent of an exceeded child will
         # just be un-satisfied since the parent itself is not really exceeded.
         return api.STATUS_UNSATISFIED
     elif status_counts[api.STATUS_UNSATISFIED] > 0:

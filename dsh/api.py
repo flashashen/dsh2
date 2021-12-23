@@ -1,5 +1,5 @@
-import six, shlex
-import dpath
+import shlex
+import dpath.util
 
 UNEVALUATED = 'UNEVALUATED'
 
@@ -53,7 +53,7 @@ class MatchResult(object):
 
     @staticmethod
     def from_input(input, start=None, stop=None):
-        if input and isinstance(input, six.string_types):
+        if input and isinstance(input, str):
             input = shlex.split(input)
         else:
             input = []
@@ -94,13 +94,13 @@ def __get_sub(target, sources):
 
         val = None
         try:
-            val = dpath.get(src, target.replace('.', '/'))
-        except:
+            val = dpath.util.get(src, target.replace('.', '/'))
+        except KeyError:
             pass
 
         if val:
             # print 'format group: {}, src: {}'.format(m.group(), src)
-            if not isinstance(val, six.string_types):
+            if not isinstance(val, str):
                 raise ValueError("Substitution target is not a string type: '{}' is a {}".format(target, type(val)))
 
             return val
