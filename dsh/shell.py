@@ -10,7 +10,7 @@ from pygments.token import Token
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.application import run_in_terminal
+from prompt_toolkit.application import in_terminal
 
 from prompt_toolkit.key_binding.key_bindings import (
     ConditionalKeyBindings,
@@ -89,31 +89,45 @@ class DevShell(Completer):
 
     def get_bottom_toolbar(self):
 
-        text = '  ^P : dump context   ^I : flange info';
+        text = '  ^P : dump context   ^F : flange info';
 
-        if DevShell.__filter_ipython_installed():
-            text += '  ^H^P : Ipython shell'
+        # if DevShell.__filter_ipython_installed():
+        #     text += '  ^I : Ipython shell'
         return text
 
 
-    @staticmethod
-    def __filter_ipython_installed(ignore=None):
-        try:
-            import IPython
-            return True
-        except:
-            return False
+    # @staticmethod
+    # def __filter_ipython_installed(ignore=None):
+    #     try:
+    #         import IPython
+    #         return True
+    #     except:
+    #         return False
 
 
     def get_key_bindings(self):
 
         key_bindings = KeyBindings()
 
-        key_bindings.add("c-f")(lambda event: run_in_terminal(lambda: self.root_node.flange.info()))
+        async def print_flange_info(event):
+            async with in_terminal():
+                self.root_node.flange.info()
 
-        def print_context():
-            pprint.pprint(api.format_dict(self.root_node.context))
-        key_bindings.add("c-p")(lambda event: run_in_terminal(print_context))
+        key_bindings.add("c-f")(print_flange_info)
+
+        async def print_context(event):
+            async with in_terminal():
+                pprint.pprint(api.format_dict(self.root_node.context))
+
+        key_bindings.add("c-p")(print_context)
+
+        # async def run_ipython(event):
+        #     async with in_terminal():
+        #         from IPython import embed
+        #         embed()
+        #
+        # if DevShell.__filter_ipython_installed():
+        #     key_bindings.add("c-i")(run_ipython)
 
         return key_bindings;
 

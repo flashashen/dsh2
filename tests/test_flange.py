@@ -2,6 +2,8 @@ import jsonschema, yaml
 from context import *
 from flange import cfg, model as flmd
 
+from click.testing import CliRunner
+
 
 FG = cfg.Cfg(
     data=main.DSH_FLANGE_PLUGIN,
@@ -29,7 +31,7 @@ def test_dsh_schema():
 
     # Then, check that flange discovers the example as in instance of the model
     f = cfg.from_file('tests/example.yml', root_path='root',)
-    f.register_model('dshnode', flmd.Model('dshnode', flmd.Model.get_schema_validator(main.DSH_SCHEMA), main.node_dsh_context))
+    f.register_model('dshnode', flmd.Model('dshnode', flmd.Model.get_schema_validator(main.DSH_SCHEMA), main.node_factory_context))
     assert f.obj('root', model='dshnode')
 
 
@@ -87,3 +89,9 @@ def test_on_failure():
 #     assert root
 #     assert root.resolve('platform ps').execute()
 #
+
+
+# def test_cli():
+#   runner = CliRunner()
+#   result = runner.invoke(main.cli, ['--exist_on_init', True])
+#   assert result.exit_code == 0

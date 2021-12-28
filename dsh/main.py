@@ -1,5 +1,5 @@
 
-import os, yaml, six, copy
+import os, yaml, copy
 from dsh import api, shell, node, evaluators, matchers
 from flange import cfg
 
@@ -16,7 +16,7 @@ DSH_FLANGE_PLUGIN = {'dshnode': {
     'name': 'dshnode',
     'type': 'FLANGE.TYPE.PLUGIN',
     'schema': 'python://dsh/main.dsh_schema',
-    'factory': 'python://dsh/main.node_dsh_context',
+    'factory': 'python://dsh/main.node_factory_context',
     'inject': 'flange'
 }}
 
@@ -25,7 +25,48 @@ ns_separator = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLAT
 
 
 
-def node_dsh_cmd(key, val, ctx={}, usage=None):
+def node_factory_context(data, name=None, ctx={}):
+
+    # print 'node_factory_context on ', data
+
+    ns = data['ns'] if 'ns' in data else ''
+
+    if name:
+        # a named command is not the root
+        rootCmd = node_factory_shell(name, __make_child_context(ctx, data))
+    else:
+        name = ns if ns else 'dsh'
+        rootCmd = node.node_root(name, __make_child_context(ctx, data))
+
+    # maintain a tuple in the node context that keeps nested context names
+    if rootCmd.context and rootCmd.context.get(api.CTX_VAR_PATH):
+        rootCmd.context[api.CTX_VAR_PATH] = rootCmd.context[api.CTX_VAR_PATH] + (name,)
+    else:
+        rootCmd.context[api.CTX_VAR_PATH] = (name,)
+
+    # Process the remaining keys
+    for key, val in data.items():
+        # print 'dsh ctx contructr ', key, val
+        if key in ['dsh', 'vars', 'ns', 'include']:
+            pass
+        elif key == 'contexts':
+            for k, v in val.items():
+                rootCmd.add_child(node_factory_context(v, k, ctx=rootCmd.context))
+        elif key == 'commands':
+            for k, v in val.items():
+                rootCmd.add_child(node_factory_command(k, v, __make_child_context(rootCmd.context, data)))
+        else:
+            # print 'visiting ', key, ' as a ctx rather than cmd'
+            # if isinstance(val, dict) and not 'do' in val:
+            #     print 'attempting ', key, ' as a ctx rather than cmd'
+            #     # This is not a valid command node. its mostly likely a context. try it that way
+            #     rootCmd.add_child(node_factory_context(val, key, ctx=rootCmd.context))
+            # else:
+            rootCmd.add_child(node_factory_command(key, val, __make_child_context(rootCmd.context, data)))
+    return rootCmd
+
+
+def node_factory_command(key, val, ctx={}, usage=None):
     """
     handles "#/definitions/type_command"
 
@@ -35,7 +76,7 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
     :return:
     """
     # command can be specified by a simple string
-    if isinstance(val, six.string_types):
+    if isinstance(val, str):
         root = node.CmdNode(key, context=ctx, usage=usage, method_evaluate=evaluators.require_all_children)
         n = node.node_shell_command(key+"_cmdstr", val, ctx=ctx, return_output=False)
         n.match = matchers.match_always_consume_no_input
@@ -47,7 +88,7 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
         root = node.CmdNode(key, context=ctx, usage=usage, method_evaluate=evaluators.require_all_children)
         # add child cmds
         for i, c in enumerate(val):
-            cn = node_dsh_cmd(key+'_'+str(i+1), c, ctx=ctx)
+            cn = node_factory_command(key+'_'+str(i+1), c, ctx=ctx)
             root.add_child(cn)
             # swallow completions
             cn.match = matchers.match_always_consume_no_input
@@ -64,7 +105,7 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
             newctx.update(val['vars'])
 
         try:
-            cn = node_dsh_cmd(
+            cn = node_factory_command(
                 key+'_do_dict',
                 val['do'],
                 ctx=newctx)
@@ -79,7 +120,7 @@ def node_dsh_cmd(key, val, ctx={}, usage=None):
 
         if 'on_failure' in val:
             print('adding failure node exe wrapper. cmd = {}'.format(val['on_failure']))
-            root.on_failure(node_dsh_cmd(
+            root.on_failure(node_factory_command(
                 key+'_on_failure',
                 val['on_failure'],
                 ctx=newctx))
@@ -98,82 +139,35 @@ def __make_child_context(parent_ctx, data):
     return newctx
 
 
-def node_dsh_context(data, name=None, ctx={}):
 
-    # print 'node_dsh_context on ', data
+def node_factory_shell(name, ctx=None):
 
-    ns = data['ns'] if 'ns' in data else ''
+    def run_as_shell(snode, match_result, child_results):
+        # If no child node results are available, then this node is assumed to be
+        # at the end of the input and will execute as a interactive subcontext/shell
+        matched_input = match_result.matched_input()
+        if len(matched_input) == 1 and matched_input[0] == snode.name and not match_result.input_remainder():
+            # clone this node as a root node and run it
+            cnode = node.node_root(snode.name, snode.context)
+            for child in snode.get_children():
+                cnode.add_child(child)
+                cnode.flange = snode.flange
+            return shell.DevShell(cnode).run()
 
-    if name:
-        # a named command is not the root
-        rootCmd = node_shell(name, __make_child_context(ctx, data))
-    else:
-        name = ns if ns else 'dsh'
-        rootCmd = node.node_root(name, __make_child_context(ctx, data))
-
-    # maintain a tuple in the node context that keeps nested context names
-    if rootCmd.context and rootCmd.context.get(api.CTX_VAR_PATH):
-        rootCmd.context[api.CTX_VAR_PATH] = rootCmd.context[api.CTX_VAR_PATH] + (name,)
-    else:
-        rootCmd.context[api.CTX_VAR_PATH] = (name,)
-
-    # Process the remaining keys
-    for key, val in data.items():
-        # print 'dsh ctx contructr ', key, val
-        if key in ['dsh', 'vars', 'ns', 'include']:
-            pass
-        elif key == 'contexts':
-            for k, v in val.items():
-                rootCmd.add_child(node_dsh_context(v, k, ctx=rootCmd.context))
-        elif key == 'commands':
-            for k, v in val.items():
-                rootCmd.add_child(node_dsh_cmd(k, v, __make_child_context(rootCmd.context, data)))
-        else:
-            # print 'visiting ', key, ' as a ctx rather than cmd'
-            # if isinstance(val, dict) and not 'do' in val:
-            #     print 'attempting ', key, ' as a ctx rather than cmd'
-            #     # This is not a valid command node. its mostly likely a context. try it that way
-            #     rootCmd.add_child(node_dsh_context(val, key, ctx=rootCmd.context))
-            # else:
-            rootCmd.add_child(node_dsh_cmd(key, val, __make_child_context(rootCmd.context, data)))
-    return rootCmd
-
-
-
-
-
-def node_shell(name, ctx=None):
+        # If there are children that returned a result, then just pass those on.
+        # In this case this node is acting as a container
+        if child_results:
+            return child_results
 
     snode = node.CmdNode(name, context=ctx)
-    snode.execute = lambda match_result, child_results: execute_context(snode, match_result, child_results)
+    snode.execute = lambda match_result, child_results: run_as_shell(snode, match_result, child_results)
     return snode
 
-
-
-def execute_context(snode, match_result, child_results):
-
-    # If no child node results are available, then this node is assumed to be
-    # at the end of the input and will execute as a interactive subcontext/shell
-    matched_input = match_result.matched_input()
-    if len(matched_input) == 1 and matched_input[0] == snode.name and not match_result.input_remainder():
-        # clone the this node as a root node and run it
-        cnode = node.node_root(snode.name, snode.context)
-        for child in snode.get_children():
-            cnode.add_child(child)
-            cnode.flange = snode.flange
-        return shell.DevShell(cnode).run()
-
-    # If there are children that returned a result, then just pass those on.
-    # In this case this node is acting as a container
-    if child_results:
-        return child_results
-
-
-
-def get_executor_shell(cnode):
-    return lambda ctx, matched_input, child_results: execute_context(cnode, ctx, child_results)
-
-
+#
+# def get_executor_shell(cnode):
+#     return lambda ctx, matched_input, child_results: execute_context(cnode, ctx, child_results)
+#
+#
 
 
 def get_flange_cfg(
@@ -234,13 +228,17 @@ def get_flange_cfg(
 
 
     # Dump src info and set namespaces from data
-    print('\nsources:                                                     ns:')
-    for src in [f for f in fcfg.sources if f.uri != 'init_data']:
-        print("{0:60.65} {1:20} {2}".format(
-            str(src.uri),
-            str(src.root_path).replace(ns_separator, '.') if src.root_path else '',
-            '\nerror: ' + str(src.error) if src.error else ''))
-    print('\n')
+    print(f"\n{'sources':<60} ns:")
+    for src in [f for f in fcfg.sources if f.uri != 'init_data' and not f.error]:
+        ns = str(src.root_path).replace(ns_separator, '.') if src.root_path else ''
+        print(f"{src.uri:60.65} {ns:20}")
+
+    error_sources = [src for src in fcfg.sources if src.error]
+    if error_sources:
+        print('\nfailed to parse:')
+        for src in error_sources:
+            # ns = str(src.root_path).replace(ns_separator, '.') if src.root_path else ''
+            print(f"{src.uri:<60} {src.error}")
 
     return fcfg
 
@@ -254,69 +252,65 @@ def set_flange(n, f):
         set_flange(children[i], f)
 
 
-#
-# import click
-#
-# @click.group(invoke_without_command=True)
-# @click.option('--verbose/--not-verbose', default=False)
+
+import click
+
+@click.group(invoke_without_command=True)
+@click.option('--base_dir', '-b', multiple=True, default=['~', '.'], 
+    help='Base directory to begin search. Mulitple accepted')
+@click.option('--file_pattern', '-fp', multiple=True, default=['.cmd*.yml'],
+    help='File glob pattern for matching source files. Mulitple accepted')
+@click.option('--search_depth', '-sd', default=2,
+    help='Depth of directory search starting with base')
+@click.option('--ignore_errors', '-ie', is_flag=True, default=False,
+    help='Ignore failures to parse matched files. By default, any failure to parse will terminate the shell')
+@click.option('--exist_on_init', '-ei', is_flag=True, default=False)
 # @click.pass_context
-# def main(ctx, verbose):
-def run(options=None,
-        base_dir=['~', '.'],
-        file_patterns=['.cmd*.yml'],
-        file_search_depth=2):
+def cli(base_dir,
+        file_pattern,
+        search_depth,
+        ignore_errors,
+        exist_on_init):
 
     options = {
         # api.DSH_VERBOSE: verbose
     }
+
+    if isinstance(base_dir, str):
+        base_dir = [base_dir]
 
     root_ns = 'dsh2'
 
     f = get_flange_cfg(
         options=options,
         base_dir=base_dir,
-        file_patterns=file_patterns,
-        file_search_depth=file_search_depth)
+        file_patterns=file_pattern,
+        file_search_depth=search_depth)
 
 
     roots = f.objs(root_ns, model='dshnode')
 
-    if not roots:
-        print('No valid dsh configuration was found')
-        f.models['dshnode'].validator(root_ns)
+    if [src for src in f.sources if src.error] and not ignore_errors:
+        print('\nExiting due to parse errors. Set --ignore_errors=true to ignore.\n')
         return 1
 
-    # kludge - give all the cmd children the flange obj in case it's needed
+    if not roots:
+        # from IPython import embed; embed()
+        print('No valid dsh configuration was found')
+        f.models['dshnode'].validator(f.value(root_ns))
+        return 1
+
+    # kludge - give all the cmd children the flange obj fin case it's needed
     set_flange(roots[0], f)
 
     # print(roots[0].flange)
     dsh = shell.DevShell(roots[0])
+    if exist_on_init:
+        return 0
+        
     dsh.run()
 
-    # print FG.info()
-    # import json
-    # print json.dumps(FG.data, indent=4)
-    # # from IPython import embed; embed()
-    # print FG.info()
 
-
-    # root = FG.mget(os.path.basename(os.getcwd()), model='dshnode')
-
-    # root = node.node_container('root')
-    # root.one_of([node_shell('panelson',FG.mget('panelson')), node.CmdNode('cmd_two').one_of(['opt1', 'opt2'])])
-
-    # validate possible candidates
-    #
-    # for nkey in FG.models.get('dshnode').keys():
-    #     root.add_child(node.node_root(nkey).add_child(FG.mget([1])))
-
-    #
-    # import pprint
-    # pprint.pprint(FG.data)
-
-
-def main():
-    run()
 
 if __name__ == '__main__':
-    run()
+    cli()

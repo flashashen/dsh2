@@ -80,7 +80,7 @@ definitions:
 
     type_command:
         anyOf:
-          # simple string shell commmand
+          # simple string shell command
           - type: string
 
           # long form where all options can be specified
@@ -100,13 +100,6 @@ definitions:
             additionalProperties: false
             required:
               - do
-
-          # call another dsh command: "dsh_ctx1.dsh_ctx2.cmd_name: arguments"
-#          - type: object
-#            minProperties: 1
-#            maxProperties: 1
-#            additionalProperties:
-#              type: string
 
           # array of self
           - type: array
