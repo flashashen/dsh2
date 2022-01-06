@@ -47,6 +47,8 @@ release:
 
 ```
 
+### [See what a *dsh.yml* file list the above looks like in action](dsh_quick_demo.svg)
+
 ## Installation
 
 ```
