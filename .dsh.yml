@@ -1,0 +1,18 @@
+
+dsh: dsh
+
+vars:
+  app_name: dsh      
+
+test:
+  - pytest
+
+install:
+  - pip list installed | grep {{app_name}} && pip uninstall -y {{app_name}}
+  - pip install -e .
+
+release:
+  - tox -r
+  - rm -rf build && rm -rf dist
+  - python setup.py sdist bdist_wheel
+  - twine upload -r pypi -u {{PYPI_USER}} -p {PYPI_PASS} dist/{{app_name}}*

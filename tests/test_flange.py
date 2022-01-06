@@ -1,5 +1,6 @@
 import jsonschema, yaml
-from context import *
+from dsh import main, node, evaluators, matchers, api, executors
+
 from flange import cfg, model as flmd
 
 from click.testing import CliRunner
@@ -67,6 +68,7 @@ def test_on_failure():
     cmdroot.resolve('platform build', 'MODE_EXECUTE').execute()
 
 
+
 # def test_context_cmd_do_after_simple():
 #
 #     cmdroot = FG.obj('tests', model='dshnode')
@@ -76,19 +78,21 @@ def test_on_failure():
 #
 
 # def test_main():
-#
-#     from flange import cfg
-#     FG = cfg.Cfg(
-#         data=main.DSH_FLANGE_PLUGIN,
-#         root_path='prj',
-#         file_patterns=['.cmd.*'],
-#         base_dir='~/workspace',
-#         file_search_depth=3)
-#
-#     root = FG.obj('sire6')
-#     assert root
-#     assert root.resolve('platform ps').execute()
-#
+
+#     data = {
+        
+#     }
+#     f = main.get_flange_cfg(
+#         options=None,
+#         root_ns=main.DSH_DEFAULT_ROOT,
+#         base_dir=['test'],
+#         file_patterns=['.dsh*.yml'],
+#         file_search_depth=0,
+#         initial_data=data)
+
+#     roots = f.objs(main.DSH_DEFAULT_ROOT, model='dshnode')
+#     assert roots
+ 
 
 
 # def test_cli():

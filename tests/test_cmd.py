@@ -1,5 +1,6 @@
-from context import *
-
+# from context import *
+import os
+from dsh import main, node, evaluators, matchers, api, executors
 
 def test_node_container():
 
@@ -142,17 +143,24 @@ def test_node_options():
 def test_node_python():
 
     def test_method(arg1, arg2, optional_arg=None, opt1=None, opt2=None):
-        if not how:
+        if not arg1:
             raise ValueError("arg1 missing")
-        if not why:
+        if not arg2:
             raise ValueError("arg2 missing")
+
+    def test_method2(**kwargs):
+        if not kwargs.get('arg1'):
+            raise ValueError("arg1 missing") 
+        if not kwargs.get('arg2'):
+            raise ValueError("arg2 missing")
+        return kwargs
 
     required = [node.node_argument('arg1'), node.node_argument('arg2')]
     optional = [node.node_argument('optional_arg')]
     options = ['-a', '-b']
     root = node.node_python(
         'do',
-        test_method,
+        test_method2,
         required,
         optional,
         options)
@@ -168,9 +176,6 @@ def test_node_python():
     # path = root.resolve(['do', 'arg1', 'val1'])
     # assert path.status == api.STATUS_UNSATISFIED
     # assert path.match_result.completions == ['arg2', '-a', '-b']
-
-
-
 
 
 def test_resolve_sequence_hosts_duplicated():

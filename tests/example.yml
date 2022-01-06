@@ -2,14 +2,7 @@
 otherstuff: don't care
 
 
-dsh: 2
-
-
-#
-# ns - Set the context namespace
-#
-ns: root.subcmd
-
+dsh: root.subcmd
 
 
 #

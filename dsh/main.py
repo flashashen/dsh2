@@ -20,23 +20,21 @@ DSH_FLANGE_PLUGIN = {'dshnode': {
     'inject': 'flange'
 }}
 
-
-ns_separator = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
+DSH_MARKER_ELEMENT = 'dsh'
+DSH_DEFAULT_ROOT = 'root'
+NS_SEPARATOR = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
 
 
 
 def node_factory_context(data, name=None, ctx={}):
 
-    # print 'node_factory_context on ', data
-
-    ns = data['ns'] if 'ns' in data else ''
-
     if name:
-        # a named command is not the root
+         # a named context is not the root
         rootCmd = node_factory_shell(name, __make_child_context(ctx, data))
     else:
-        name = ns if ns else 'dsh'
+        name = data[DSH_MARKER_ELEMENT] if data.get(DSH_MARKER_ELEMENT ) else DSH_DEFAULT_ROOT
         rootCmd = node.node_root(name, __make_child_context(ctx, data))
+
 
     # maintain a tuple in the node context that keeps nested context names
     if rootCmd.context and rootCmd.context.get(api.CTX_VAR_PATH):
@@ -47,7 +45,7 @@ def node_factory_context(data, name=None, ctx={}):
     # Process the remaining keys
     for key, val in data.items():
         # print 'dsh ctx contructr ', key, val
-        if key in ['dsh', 'vars', 'ns', 'include']:
+        if key in ['dsh', 'vars', 'include']:
             pass
         elif key == 'contexts':
             for k, v in val.items():
@@ -92,7 +90,6 @@ def node_factory_command(key, val, ctx={}, usage=None):
             root.add_child(cn)
             # swallow completions
             cn.match = matchers.match_always_consume_no_input
-            # cn.evaluate = evaluators.require_all_children
 
         return root
 
@@ -172,73 +169,64 @@ def node_factory_shell(name, ctx=None):
 
 def get_flange_cfg(
         options=None,
-        root_ns='dsh2',
+        root_ns='dsh',
         base_dir=['.', '~'],
         file_patterns=['.cmd*.yml'],
-        file_search_depth=2):
+        file_exclude_patterns=['.history'],
+        file_search_depth=2,
+        initial_data={}):
 
-    data = {}
-    data.update(DSH_FLANGE_PLUGIN)
+    # The initial data force 
+    # data = {} #{root_ns: {'dsh': root_ns}}
+    initial_data.update(DSH_FLANGE_PLUGIN)
+    initial_data.update({root_ns: {DSH_MARKER_ELEMENT: root_ns}})
     if options:
-        data.update(options)
+        initial_data.update(options)
 
 
     def update_source_root_path(dsh_root, src):
         '''
-        set the root path which locates this source in the larger config/data.
+        Define a flange source post-processor to set the root path for the source.
+        The root path is determined from the value of the DSH_MARKER_ELEMENT
 
         :param dsh_root: 'location' of dsh config in the flange data
         :param src: flange source object
         :return: None
         '''
 
-        if not src.contents or not isinstance(src.contents, dict) or 'dsh' not in src.contents:
+        if not src.contents or not isinstance(src.contents, dict) or DSH_MARKER_ELEMENT not in src.contents:
             return
 
-        if not src.contents.get('ns'):
-            src.root_path = ''
+        ns = src.contents.get(DSH_MARKER_ELEMENT)
+        if not ns:
+            src.root_path = DSH_DEFAULT_ROOT
 
-        elif src.contents.get('ns').startswith(dsh_root):
+        elif ns.startswith(dsh_root):
             # if the dsh ns starts with the current root, then assume
             # they're referring to the same ns. Just replace separator
-            src.root_path = src.contents['ns'].replace('.', ns_separator)
+            src.root_path = ns.replace('.', NS_SEPARATOR)
 
         else:
             # just append the dsh ns
-            src.root_path = dsh_root + ns_separator + src.contents.get('ns').replace('.', ns_separator)
+            src.root_path = dsh_root + NS_SEPARATOR + ns.replace('.', NS_SEPARATOR)
         # print 'setting {} ns from {} to {}'.format(src.uri, curent_root, src.ns)
 
-        # Add the .cmd.yml src location to the vars so context nodes can change cwd
+        # Add the src location to the vars so context nodes can change cwd
         src.contents['vars' + cfg.DEFAULT_UNFLATTEN_SEPARATOR + api.CTX_VAR_SRC_DIR] = os.path.dirname(src.uri)
-
 
 
     # get flange config. dont pass root_ns so that config that does not
     # contain the 'dsh' element will not fall under dsh root node. If it
     # did then there will more likely be invalid config
     fcfg = cfg.Cfg(
-        data=data,
+        data=initial_data,
         root_path=None,
         include_os_env=False,
         file_patterns=file_patterns,
-        file_exclude_patterns=[],
+        file_exclude_patterns=file_exclude_patterns,
         base_dir=base_dir,
         file_search_depth=file_search_depth,
         src_post_proc=lambda src: update_source_root_path(root_ns, src))
-
-
-    # Dump src info and set namespaces from data
-    print(f"\n{'sources':<60} ns:")
-    for src in [f for f in fcfg.sources if f.uri != 'init_data' and not f.error]:
-        ns = str(src.root_path).replace(ns_separator, '.') if src.root_path else ''
-        print(f"{src.uri:60.65} {ns:20}")
-
-    error_sources = [src for src in fcfg.sources if src.error]
-    if error_sources:
-        print('\nfailed to parse:')
-        for src in error_sources:
-            # ns = str(src.root_path).replace(ns_separator, '.') if src.root_path else ''
-            print(f"{src.uri:<60} {src.error}")
 
     return fcfg
 
@@ -258,7 +246,7 @@ import click
 @click.group(invoke_without_command=True)
 @click.option('--base_dir', '-b', multiple=True, default=['~', '.'], 
     help='Base directory to begin search. Mulitple accepted')
-@click.option('--file_pattern', '-fp', multiple=True, default=['.cmd*.yml'],
+@click.option('--file_pattern', '-fp', multiple=True, default=['.dsh*.yml'],
     help='File glob pattern for matching source files. Mulitple accepted')
 @click.option('--search_depth', '-sd', default=2,
     help='Depth of directory search starting with base')
@@ -279,9 +267,10 @@ def cli(base_dir,
     if isinstance(base_dir, str):
         base_dir = [base_dir]
 
-    root_ns = 'dsh2'
+    root_ns = DSH_DEFAULT_ROOT
 
     f = get_flange_cfg(
+        root_ns=root_ns,
         options=options,
         base_dir=base_dir,
         file_patterns=file_pattern,
@@ -289,21 +278,43 @@ def cli(base_dir,
 
 
     roots = f.objs(root_ns, model='dshnode')
+    # from IPython import embed; embed()
+    if not [src for src in f.sources if src.parser] :
+        print(f'No sources found matching {file_pattern}')
+        return 1
+       
+    # Dump src info and set namespaces from data
+    print(f"\n{'sources':<60} ns:")
+    for src in [f for f in f.sources if f.uri != 'init_data' and not f.error]:
+        ns = str(src.root_path).replace(NS_SEPARATOR, '.') if src.root_path else ''
+        print(f"{src.uri:60.65} {ns:20}")
+
+    error_sources = [src for src in f.sources if src.error]
+    if error_sources:
+        print('\nfailed to parse:')
+        for src in error_sources:
+            # ns = str(src.root_path).replace(NS_SEPARATOR, '.') if src.root_path else ''
+            print(f"{src.uri:<60} {src.error}")
 
     if [src for src in f.sources if src.error] and not ignore_errors:
         print('\nExiting due to parse errors. Set --ignore_errors=true to ignore.\n')
         return 1
 
+    # if roots and :
+    #     print(f'No sources found matching {file_pattern}')
+    #     return 1
+
     if not roots:
         # from IPython import embed; embed()
         print('No valid dsh configuration was found')
-        f.models['dshnode'].validator(f.value(root_ns))
+        try:
+            f.models['dshnode'].validator(f.value(root_ns))
+        except Exception as e:
+            print(e)
         return 1
 
-    # kludge - give all the cmd children the flange obj fin case it's needed
     set_flange(roots[0], f)
 
-    # print(roots[0].flange)
     dsh = shell.DevShell(roots[0])
     if exist_on_init:
         return 0

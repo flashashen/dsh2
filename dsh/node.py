@@ -475,7 +475,8 @@ class ResolutionPath:
 
     def execute(self):
         """
-        Execute the resolved nodes in reversed post-order (effectively its a stack).
+        Execute the resolved nodes in right-first post-order which is equivalent to 
+        starting at end of input and working back toward the begninning.
 
         :return:
         """

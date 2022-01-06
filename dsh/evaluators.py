@@ -38,7 +38,6 @@ def require_all_children(statuses):
 
 
 
-
 def choose_one_child(statuses):
     """
     Satisfied when exactly one child in the list is satisfied (completed implies satisfied).
@@ -62,6 +61,7 @@ def choose_one_child(statuses):
         return api.STATUS_UNSATISFIED
 
 
+
 def children_as_options(statuses):
     """
     All children are optional. Initial status is SATISFIED since
@@ -82,10 +82,6 @@ def children_as_options(statuses):
         return api.STATUS_COMPLETED
     else:
         return api.STATUS_SATISFIED
-
-
-
-
 
 
 def __count_statuses(statuses):

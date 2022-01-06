@@ -1,5 +1,4 @@
-from __future__ import print_function
-import subprocess, sys, traceback, os, contextlib
+import subprocess, sys, traceback, os, contextlib, io
 from dsh import api
 #
 #   Executor(context) methods.
@@ -88,11 +87,7 @@ def execute_shell_cmd(command, node_args, free_args, argvars, env=None, return_o
 
     # return the output
     if return_output:
-        try:
-            from StringIO import StringIO
-        except ImportError:
-            from io import StringIO
-        output = StringIO()
+        output = io.StringIO()
         if execute_with_running_output(cmd_string, cmdenv, output) == 0:
             return output.getvalue().split('\n')
         else:

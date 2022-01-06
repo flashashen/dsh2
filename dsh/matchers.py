@@ -37,6 +37,8 @@ def get_matcher_exact_string(str):
 
 def match_string(str, input_segments, start_index=0):
     """
+    Match input against a given string
+    
     Get a match status and stop,start indices of resovled input segments. Only a full match
     will return resolved indices. Indices are inclusive. This form of the match function, if
     there is a full match, always returns a stop index of start+1 since it performs a simple,
@@ -65,7 +67,7 @@ def match_string(str, input_segments, start_index=0):
             # Full match 'consumes' this word and provides no completions
             return api.MatchResult(api.MATCH_FULL, input_segments, start_index, start_index+1, [])
         else:
-            # Fragment match also 'consumes this word but also provides completions
+            # Fragment match also 'consumes' this word but also provides completions
             return api.MatchResult(api.MATCH_FRAGMENT, input_segments, start_index, start_index+1, [str])
 
     return api.MatchResult(api.MATCH_NONE, input_segments, start_index, start_index)

@@ -12,6 +12,9 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.application import in_terminal
 
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.shortcuts import message_dialog
+
 from prompt_toolkit.key_binding.key_bindings import (
     ConditionalKeyBindings,
     KeyBindings,
@@ -60,7 +63,7 @@ class DevShell(Completer):
         word_before = document.get_word_before_cursor()
         for a in c:
             if a.startswith(word_before) or document.char_before_cursor == ' ':
-                yield Completion(
+                 yield Completion(
                     a,
                     -len(word_before) if a.startswith(word_before) else 0)
 

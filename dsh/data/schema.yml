@@ -9,8 +9,8 @@ allOf:
  # dsh marker
   - type: object
     properties:
-      dsh:
-        $ref: "#/definitions/dsh_versions"
+      dsh: 
+        $ref: "#/definitions/dsh_element"
 #      include:
 #        $ref: "#/definitions/type_include"
     required:
@@ -20,27 +20,14 @@ allOf:
 
 definitions:
 
-    dsh_versions: { "enum": [2] }
-
-#    dsh:
-#      oneOf:
-#        - $ref: "#/definitions/dsh_versions"
-#        - type: object
-#          properties:
-#              # namespace of this context. 'apps.app' resolves to dsh command 'dsh>apps app'
-#              ns:
-#                type: string
-#              version:
-#                $ref: "#/definitions/dsh_versions"
-
-
-
+    dsh_element: { "type": ["string", "null"] }
+    
     type_context:
         type: object
         properties:
             # namespace of this context. 'apps.app' resolves to dsh command 'dsh>apps app'
             dsh:
-              $ref: "#/definitions/dsh_versions"
+              $ref: "#/definitions/dsh_element"
             ns:
               type: string
             vars:
@@ -93,7 +80,7 @@ definitions:
                 do:
                   $ref: "#/definitions/type_command"
                 dsh:
-                  $ref: "#/definitions/dsh_versions"
+                  $ref: "#/definitions/dsh_element"
                 on_failure:
                   $ref: "#/definitions/type_command"
 

@@ -7,7 +7,7 @@ README_TEXT = readme.read()
 readme.close()
 
 setup(
-    name='dsh2',
+    name='dsh',
     version='2.2.0',
     author='flashashen',
     author_email='flashashen@gmail.com',
@@ -17,7 +17,7 @@ setup(
     classifiers= [
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3'   ,
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
@@ -32,13 +32,14 @@ setup(
     platforms='osx,linux',
     keywords="shell console yaml",
     long_description=README_TEXT,
+    long_description_content_type='text/markdown',
     packages=['dsh'],
     package_data={'dsh': ['data/*']},
     tests_require=['nose', 'jsonschema'],
     test_suite="tests",
     install_requires=[
         'flange>=1.0.0',
-        'prompt_toolkit >3.0',
+        'prompt_toolkit>3.0',
         'pygments',
         'Click'
     ],

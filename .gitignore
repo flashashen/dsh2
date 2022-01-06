@@ -107,14 +107,7 @@ local.properties
 # release artifacts
 #####################
 **pom.xml.versionsBackup
-
-
-# CVS artifacts #
-######################
-/CVS/*
-*/CVS/*
-.cvsignore
-*/.cvsignore
+**.egg-info
 
 
 # Intelli artifacts #
@@ -133,10 +126,14 @@ Session.vim
 .netrwhist
 *~
 
+.vscode
+**workspace.*
+.history
 
 # Virtualization
 .vagrant
 
 
-/dsh2.egg-info/
+
+
 /.tox/
