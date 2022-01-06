@@ -1,4 +1,0 @@
-anyconfig==0.9.7
-flange==0.0.8
-prompt-toolkit==1.0.15
-

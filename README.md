@@ -1,7 +1,6 @@
 # DSH  - the absent minded developer's shell
 
-![CircleCI](https://circleci.com/gh/flashashen/dsh2.svg?style=svg)
-![Python versions](https://img.shields.io/pypi/pyversions/dsh2.svg)
+![Python versions](https://img.shields.io/pypi/pyversions/dsh.svg)
 ![MIT License](https://img.shields.io/github/license/flashashen/dsh2.svg)
 
 -------------------------------
@@ -19,12 +18,14 @@ Organize the stuff you do via command line
 ## What it does
 - At the most basic level, it executes commands expressed in yaml
 - Creates a tree of 'contexts' which consist of vars, commands, and subcontexts 
-- Locates and merges contexts defined in dsh.*.yml files
+- Locates and merges contexts defined in .dsh.*.yml files
 - Provides nested contexts/subshells for projects/environments under a root shell
 - Changes current working directory to that of active shell
 - Provides variable substitution
 - Provides inherited variables with override
 
+
+## Sample .dsh.yml:
 
 ``` yaml
 dsh: personal.python.proj
@@ -47,7 +48,9 @@ release:
 
 ```
 
-### [See what a *dsh.yml* file list the above looks like in action](dsh_quick_demo.svg)
+## Demo
+With dsh.yml files similar to the above, a dsh session might look like this:
+![usage demo image](https://raw.githubusercontent.com/flashashen/dsh2/master/dsh_quick_demo.svg?raw=true)
 
 ## Installation
 
