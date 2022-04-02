@@ -5,20 +5,20 @@ from flange import cfg
 
 
 
-with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/schema.yml')) as f:
-    DSH_SCHEMA = yaml.safe_load(f)
+# with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/schema_minimum.yml')) as f:
+#     DSH_SCHEMA = yaml.safe_load(f)
 
-def dsh_schema():
-    return DSH_SCHEMA
+# def dsh_schema():
+#     return DSH_SCHEMA
 
 
-DSH_FLANGE_PLUGIN = {'dshnode': {
-    'name': 'dshnode',
-    'type': 'FLANGE.TYPE.PLUGIN',
-    'schema': 'python://dsh/main.dsh_schema',
-    'factory': 'python://dsh/main.node_factory_context',
-    'inject': 'flange'
-}}
+# DSH_FLANGE_PLUGIN = {'dshnode': {
+#     'name': 'dshnode',
+#     'type': 'FLANGE.TYPE.PLUGIN',
+#     'schema': 'python://dsh/main.dsh_schema',
+#     'factory': 'python://dsh/main.node_factory_context',
+#     'inject': 'flange'
+# }}
 
 DSH_MARKER_ELEMENT = 'dsh'
 DSH_DEFAULT_ROOT = 'root'
@@ -176,10 +176,11 @@ def get_flange_cfg(
         file_search_depth=2,
         initial_data={}):
 
-    # The initial data force 
-    # data = {} #{root_ns: {'dsh': root_ns}}
-    initial_data.update(DSH_FLANGE_PLUGIN)
+    # Insert a default root dsh element in case none of the discovered nodes are at the root
+    # level. If no root context exists, then the dsh factory fails to build the node tree
     initial_data.update({root_ns: {DSH_MARKER_ELEMENT: root_ns}})
+
+    # Add any explicit values given
     if options:
         initial_data.update(options)
 
@@ -187,7 +188,8 @@ def get_flange_cfg(
     def update_source_root_path(dsh_root, src):
         '''
         Define a flange source post-processor to set the root path for the source.
-        The root path is determined from the value of the DSH_MARKER_ELEMENT
+        The root path is determined from the value of the DSH_MARKER_ELEMENT. This locates
+        the source in the tree of dsh nodes/contexts
 
         :param dsh_root: 'location' of dsh config in the flange data
         :param src: flange source object
@@ -226,7 +228,8 @@ def get_flange_cfg(
         file_exclude_patterns=file_exclude_patterns,
         base_dir=base_dir,
         file_search_depth=file_search_depth,
-        src_post_proc=lambda src: update_source_root_path(root_ns, src))
+        src_post_proc=lambda src: update_source_root_path(root_ns, src),
+        research=False)
 
     return fcfg
 
@@ -277,8 +280,8 @@ def cli(base_dir,
         file_search_depth=search_depth)
 
 
-    roots = f.objs(root_ns, model='dshnode')
     # from IPython import embed; embed()
+
     if not [src for src in f.sources if src.parser] :
         print(f'No sources found matching {file_pattern}')
         return 1
@@ -288,6 +291,7 @@ def cli(base_dir,
     for src in [f for f in f.sources if f.uri != 'init_data' and not f.error]:
         ns = str(src.root_path).replace(NS_SEPARATOR, '.') if src.root_path else ''
         print(f"{src.uri:60.65} {ns:20}")
+
 
     error_sources = [src for src in f.sources if src.error]
     if error_sources:
@@ -300,22 +304,15 @@ def cli(base_dir,
         print('\nExiting due to parse errors. Set --ignore_errors=true to ignore.\n')
         return 1
 
-    # if roots and :
-    #     print(f'No sources found matching {file_pattern}')
-    #     return 1
 
-    if not roots:
-        # from IPython import embed; embed()
+    root_shell = node_factory_context(f.value(root_ns))
+    if not root_shell:
         print('No valid dsh configuration was found')
-        try:
-            f.models['dshnode'].validator(f.value(root_ns))
-        except Exception as e:
-            print(e)
         return 1
 
-    set_flange(roots[0], f)
+    set_flange(root_shell, f)
 
-    dsh = shell.DevShell(roots[0])
+    dsh = shell.DevShell(root_shell)
     if exist_on_init:
         return 0
         
