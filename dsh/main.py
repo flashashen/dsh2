@@ -5,21 +5,6 @@ from flange import cfg
 
 
 
-# with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data/schema_minimum.yml')) as f:
-#     DSH_SCHEMA = yaml.safe_load(f)
-
-# def dsh_schema():
-#     return DSH_SCHEMA
-
-
-# DSH_FLANGE_PLUGIN = {'dshnode': {
-#     'name': 'dshnode',
-#     'type': 'FLANGE.TYPE.PLUGIN',
-#     'schema': 'python://dsh/main.dsh_schema',
-#     'factory': 'python://dsh/main.node_factory_context',
-#     'inject': 'flange'
-# }}
-
 DSH_MARKER_ELEMENT = 'dsh'
 DSH_DEFAULT_ROOT = 'root'
 NS_SEPARATOR = cfg.DEFAULT_UNFLATTEN_SEPARATOR + 'contexts' + cfg.DEFAULT_UNFLATTEN_SEPARATOR
